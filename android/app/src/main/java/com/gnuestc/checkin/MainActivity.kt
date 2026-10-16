@@ -33,7 +33,8 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
     private var updatingSwitch = false
-    private var updatingDarkSwitch = false
+    // [深色开关已移回右上角胶囊，待审查后删除]
+    // private var updatingDarkSwitch = false
     private var dotColor = 0
     private var pendingGpsRequest = false
     private val reqLocationCode = 1001
@@ -70,8 +71,7 @@ class MainActivity : AppCompatActivity() {
             insets
         }
 
-        // [旧按钮监听器已迁移至侧边栏，待审查后删除]
-        /*
+        // 深色模式开关（右上角胶囊）
         binding.btnTheme.setOnClickListener {
             val newDark = !Prefs.isDarkTheme(this)
             Prefs.setDarkTheme(this, newDark)
@@ -79,10 +79,13 @@ class MainActivity : AppCompatActivity() {
             ThemeManager.setNight(newDark)
         }
 
+        // 登录账号按钮（主界面重要入口）
         binding.btnLogin.setOnClickListener {
             startActivity(Intent(this, LoginActivity::class.java))
         }
 
+        // [其余旧按钮监听器已迁移至侧边栏，待审查后删除]
+        /*
         binding.btnTest.setOnClickListener {
             binding.btnTest.isEnabled = false
             binding.progressBusy.visibility = View.VISIBLE
@@ -101,6 +104,8 @@ class MainActivity : AppCompatActivity() {
         // 侧边栏（三条杠）与菜单交互
         binding.btnMenu.setOnClickListener { binding.drawerLayout.openDrawer(binding.drawerPanel) }
 
+        // [深色开关已移回右上角胶囊，待审查后删除]
+        /*
         binding.switchDark.setOnCheckedChangeListener { _, checked ->
             if (updatingDarkSwitch) return@setOnCheckedChangeListener
             if (checked != Prefs.isDarkTheme(this)) {
@@ -110,6 +115,7 @@ class MainActivity : AppCompatActivity() {
             }
         }
         binding.rowDark.setOnClickListener { binding.switchDark.toggle() }
+        */
 
         binding.menuTest.setOnClickListener {
             binding.drawerLayout.closeDrawer(binding.drawerPanel)
@@ -127,10 +133,13 @@ class MainActivity : AppCompatActivity() {
             binding.drawerLayout.closeDrawer(binding.drawerPanel)
             openPermissionGuides()
         }
+        // [登录账号已移回主界面按钮，待审查后删除]
+        /*
         binding.menuLogin.setOnClickListener {
             binding.drawerLayout.closeDrawer(binding.drawerPanel)
             startActivity(Intent(this, LoginActivity::class.java))
         }
+        */
 
         // 未登录时点击「账号状态」卡片直接进入登录页
         binding.cardAccount.setOnClickListener {
@@ -139,7 +148,8 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        binding.cardLocation.setOnClickListener { showLocationMenu() }
+        // [脚本定位卡片已移入侧边栏，卡片入口停用，待审查后删除]
+        // binding.cardLocation.setOnClickListener { showLocationMenu() }
 
         // 底部版本号与「关于」入口
         binding.tvVersion.text = getString(R.string.version_format, BuildConfig.VERSION_NAME)
@@ -197,18 +207,19 @@ class MainActivity : AppCompatActivity() {
 
         binding.tvAccount.text = getString(if (logged) R.string.logged_in else R.string.not_logged)
         binding.tvLast.text = Prefs.getLastResult(this) ?: getString(R.string.no_record)
-        // [旧主题按钮已迁移至侧边栏，待审查后删除]
-        // binding.btnTheme.text = getString(if (Prefs.isDarkTheme(this)) R.string.theme_dark else R.string.theme_light)
+        binding.btnTheme.text = getString(if (Prefs.isDarkTheme(this)) R.string.theme_dark else R.string.theme_light)
         binding.tvDrawerWindow.text = Prefs.windowLabel(this)
-        refreshLocationCard()
+        // [脚本定位卡片已移入侧边栏，待审查后删除]
+        // refreshLocationCard()
 
         updatingSwitch = true
         binding.switchService.isChecked = enabled
         updatingSwitch = false
 
-        updatingDarkSwitch = true
-        binding.switchDark.isChecked = Prefs.isDarkTheme(this)
-        updatingDarkSwitch = false
+        // [深色开关已移回右上角胶囊，待审查后删除]
+        // updatingDarkSwitch = true
+        // binding.switchDark.isChecked = Prefs.isDarkTheme(this)
+        // updatingDarkSwitch = false
 
         refreshConsole()
     }
@@ -247,33 +258,37 @@ class MainActivity : AppCompatActivity() {
             .show()
     }
 
-    /** 刷新「脚本定位」卡片：坐标 + 距本账号打卡点距离 */
-    private fun refreshLocationCard() {
-        val lat = Prefs.getLocationLat(this)
-        val lng = Prefs.getLocationLng(this)
-        val defaultMark = when {
-            Prefs.isCustomLocation(this) -> ""
-            Prefs.isDefaultPointKnown(this) ->
-                getString(R.string.location_default_mark_named, Prefs.getDefaultName(this))
-            else -> getString(R.string.location_default_mark)
-        }
-        binding.tvLocationCoords.text = String.format(Locale.US, "%.6f, %.6f", lat, lng) + defaultMark
+    // [脚本定位卡片已移入侧边栏，卡片刷新逻辑停用，待审查后删除]
+    // /** 刷新「脚本定位」卡片：坐标 + 距本账号打卡点距离 */
+    // private fun refreshLocationCard() {
+    //     val lat = Prefs.getLocationLat(this)
+    //     val lng = Prefs.getLocationLng(this)
+    //     val defaultMark = when {
+    //         Prefs.isCustomLocation(this) -> ""
+    //         Prefs.isDefaultPointKnown(this) ->
+    //             getString(R.string.location_default_mark_named, Prefs.getDefaultName(this))
+    //         else -> getString(R.string.location_default_mark)
+    //     }
+    //     binding.tvLocationCoords.text = String.format(Locale.US, "%.6f, %.6f", lat, lng) + defaultMark
+    //
+    //     val d = GeoUtil.distanceMeters(lat, lng, Prefs.getDefaultLat(this), Prefs.getDefaultLng(this))
+    //     val inside = d <= Prefs.getDefaultRadius(this)
+    //     binding.tvLocationDistance.text = getString(
+    //         R.string.location_distance_fmt,
+    //         formatDistance(d),
+    //         getString(if (inside) R.string.location_in_fence else R.string.location_out_fence)
+    //     )
+    //     binding.tvLocationDistance.setTextColor(
+    //         ContextCompat.getColor(this, if (inside) R.color.dot_on else R.color.dot_warn)
+    //     )
+    // }
 
-        val d = GeoUtil.distanceMeters(lat, lng, Prefs.getDefaultLat(this), Prefs.getDefaultLng(this))
-        val inside = d <= Prefs.getDefaultRadius(this)
-        binding.tvLocationDistance.text = getString(
-            R.string.location_distance_fmt,
-            formatDistance(d),
-            getString(if (inside) R.string.location_in_fence else R.string.location_out_fence)
-        )
-        binding.tvLocationDistance.setTextColor(
-            ContextCompat.getColor(this, if (inside) R.color.dot_on else R.color.dot_warn)
-        )
-    }
-
+    // [随脚本定位卡片一并停用，待审查后删除]
+    /*
     private fun formatDistance(meters: Double): String =
         if (meters < 1000) String.format(Locale.US, "%.0f 米", meters)
         else String.format(Locale.US, "%.2f 公里", meters / 1000)
+    */
 
     /** 测试打卡（侧边栏入口） */
     private fun startTestCheckin() {

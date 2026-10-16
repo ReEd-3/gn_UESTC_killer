@@ -54,7 +54,6 @@
                     android:textSize="12sp" />
             </LinearLayout>
 
-            <!-- [旧主题胶囊已迁移至侧边栏，待审查后删除]
             <TextView
                 android:id="@+id/btnTheme"
                 android:layout_width="wrap_content"
@@ -67,7 +66,6 @@
                 android:text="@string/theme_dark"
                 android:textColor="@color/text_secondary"
                 android:textSize="12sp" />
-            -->
         </LinearLayout>
 
     <!-- 主卡片：服务状态 -->
@@ -202,7 +200,7 @@
         </LinearLayout>
     </LinearLayout>
 
-    <!-- 脚本定位卡片 -->
+    <!-- [脚本定位卡片已移入侧边栏，待审查后删除]
     <LinearLayout
         android:id="@+id/cardLocation"
         android:layout_width="match_parent"
@@ -255,6 +253,21 @@
             android:textColor="@color/accent"
             android:textSize="13sp" />
     </LinearLayout>
+    -->
+
+    <!-- 登录账号（重要入口，点击进入登录/重新登录） -->
+    <androidx.appcompat.widget.AppCompatButton
+        android:id="@+id/btnLogin"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:background="@drawable/bg_btn_secondary"
+        android:elevation="0dp"
+        android:minHeight="44dp"
+        android:minWidth="0dp"
+        android:text="@string/btn_login_text"
+        android:textColor="@color/text_primary"
+        android:textSize="14sp" />
 
     <!-- [旧操作按钮行：已迁移至侧边栏，待审查后删除]
     <LinearLayout
@@ -432,7 +445,7 @@
             android:layout_height="1dp"
             android:background="@color/card_stroke" />
 
-        <!-- 深色模式 -->
+        <!-- [深色开关已移回右上角胶囊，待审查后删除]
         <LinearLayout
             android:id="@+id/rowDark"
             android:layout_width="match_parent"
@@ -460,6 +473,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content" />
         </LinearLayout>
+        -->
 
         <!-- 调整时间窗口 -->
         <LinearLayout
@@ -539,7 +553,7 @@
             android:textColor="@color/text_primary"
             android:textSize="14sp" />
 
-        <!-- 登录账号 -->
+        <!-- [登录账号已移回主界面按钮，待审查后删除]
         <TextView
             android:id="@+id/menuLogin"
             android:layout_width="match_parent"
@@ -554,5 +568,6 @@
             android:text="@string/btn_login_text"
             android:textColor="@color/text_primary"
             android:textSize="14sp" />
+        -->
     </LinearLayout>
 </androidx.drawerlayout.widget.DrawerLayout>
