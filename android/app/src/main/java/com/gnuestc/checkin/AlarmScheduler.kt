@@ -15,22 +15,16 @@ object AlarmScheduler {
 
     private const val REQUEST_CODE = 1001
 
-    /** 每天 21:05 触发（打卡窗口 21:00–23:30） */
-    private const val TRIGGER_HOUR = 21
-    private const val TRIGGER_MINUTE = 5
-
-    /** 失败重试间隔与窗口截止（超过则排到第二天） */
+    /** 失败重试间隔（触发时间与截止时间以 Prefs 中同步的窗口为准，默认 21:05–23:30） */
     private const val RETRY_INTERVAL_MS = 5 * 60 * 1000L
-    private const val WINDOW_END_HOUR = 23
-    private const val WINDOW_END_MINUTE = 20
 
-    fun scheduleDaily(context: Context) = set(context, nextDailyTrigger())
+    fun scheduleDaily(context: Context) = set(context, nextDailyTrigger(context))
 
     /** 失败重试：还在窗口内则 5 分钟后重试，否则直接排到明天 */
     fun scheduleRetry(context: Context) {
         val now = System.currentTimeMillis()
-        val windowEnd = todayAt(WINDOW_END_HOUR, WINDOW_END_MINUTE)
-        val next = if (now + RETRY_INTERVAL_MS <= windowEnd) now + RETRY_INTERVAL_MS else nextDailyTrigger()
+        val windowEnd = todayAtMinute(Prefs.getWindowEndMinute(context))
+        val next = if (now + RETRY_INTERVAL_MS <= windowEnd) now + RETRY_INTERVAL_MS else nextDailyTrigger(context)
         set(context, next)
     }
 
@@ -48,10 +42,12 @@ object AlarmScheduler {
         if (!Prefs.isServiceEnabled(context)) return
         if (Prefs.getCookie(context).isBlank()) return
         val now = System.currentTimeMillis()
+        val start = todayAtMinute(Prefs.getWindowStartMinute(context))
+        val end = todayAtMinute(Prefs.getWindowEndMinute(context))
         val next = when {
-            now < todayAt(TRIGGER_HOUR, TRIGGER_MINUTE) -> todayAt(TRIGGER_HOUR, TRIGGER_MINUTE)
-            now <= todayAt(WINDOW_END_HOUR, WINDOW_END_MINUTE) -> now + 60_000L
-            else -> todayAt(TRIGGER_HOUR, TRIGGER_MINUTE) + 24L * 60 * 60 * 1000
+            now < start -> start
+            now <= end -> now + 60_000L
+            else -> start + 24L * 60 * 60 * 1000
         }
         set(context, next)
     }
@@ -72,10 +68,12 @@ object AlarmScheduler {
         Prefs.setNextTrigger(context, triggerAtMillis)
     }
 
-    private fun nextDailyTrigger(): Long {
+    /** 下一次每日触发：今天的窗口开始时间（默认 21:05），已过则明天 */
+    private fun nextDailyTrigger(context: Context): Long {
         val target = Calendar.getInstance().apply {
-            set(Calendar.HOUR_OF_DAY, TRIGGER_HOUR)
-            set(Calendar.MINUTE, TRIGGER_MINUTE)
+            val m = Prefs.getWindowStartMinute(context)
+            set(Calendar.HOUR_OF_DAY, m / 60)
+            set(Calendar.MINUTE, m % 60)
             set(Calendar.SECOND, 0)
             set(Calendar.MILLISECOND, 0)
         }
@@ -83,10 +81,11 @@ object AlarmScheduler {
         return target.timeInMillis
     }
 
-    private fun todayAt(hour: Int, minute: Int): Long =
+    /** 今天某「当天分钟数」（如 21:05 = 1265）对应的时间戳 */
+    private fun todayAtMinute(minuteOfDay: Int): Long =
         Calendar.getInstance().apply {
-            set(Calendar.HOUR_OF_DAY, hour)
-            set(Calendar.MINUTE, minute)
+            set(Calendar.HOUR_OF_DAY, minuteOfDay / 60)
+            set(Calendar.MINUTE, minuteOfDay % 60)
             set(Calendar.SECOND, 0)
             set(Calendar.MILLISECOND, 0)
         }.timeInMillis

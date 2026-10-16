@@ -33,6 +33,7 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
     private var updatingSwitch = false
+    private var updatingDarkSwitch = false
     private var dotColor = 0
     private var pendingGpsRequest = false
     private val reqLocationCode = 1001
@@ -60,12 +61,17 @@ class MainActivity : AppCompatActivity() {
         // Android 15/16 强制边到边显示：给根布局留出系统栏间距
         WindowCompat.setDecorFitsSystemWindows(window, false)
         val basePad = (16 * resources.displayMetrics.density).toInt()
-        ViewCompat.setOnApplyWindowInsetsListener(binding.root) { v, insets ->
+        ViewCompat.setOnApplyWindowInsetsListener(binding.root) { _, insets ->
             val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            v.setPadding(basePad + bars.left, basePad + bars.top, basePad + bars.right, basePad + bars.bottom)
+            binding.mainContent.setPadding(
+                basePad + bars.left, basePad + bars.top, basePad + bars.right, basePad + bars.bottom
+            )
+            binding.drawerPanel.setPadding(0, bars.top, 0, bars.bottom)
             insets
         }
 
+        // [旧按钮监听器已迁移至侧边栏，待审查后删除]
+        /*
         binding.btnTheme.setOnClickListener {
             val newDark = !Prefs.isDarkTheme(this)
             Prefs.setDarkTheme(this, newDark)
@@ -90,6 +96,48 @@ class MainActivity : AppCompatActivity() {
         }
 
         binding.btnPermissions.setOnClickListener { openPermissionGuides() }
+        */
+
+        // 侧边栏（三条杠）与菜单交互
+        binding.btnMenu.setOnClickListener { binding.drawerLayout.openDrawer(binding.drawerPanel) }
+
+        binding.switchDark.setOnCheckedChangeListener { _, checked ->
+            if (updatingDarkSwitch) return@setOnCheckedChangeListener
+            if (checked != Prefs.isDarkTheme(this)) {
+                Prefs.setDarkTheme(this, checked)
+                LogStore.append(this, if (checked) "[系统] 已切换为深色模式" else "[系统] 已切换为浅色模式")
+                ThemeManager.setNight(checked)
+            }
+        }
+        binding.rowDark.setOnClickListener { binding.switchDark.toggle() }
+
+        binding.menuTest.setOnClickListener {
+            binding.drawerLayout.closeDrawer(binding.drawerPanel)
+            startTestCheckin()
+        }
+        binding.menuLocation.setOnClickListener {
+            binding.drawerLayout.closeDrawer(binding.drawerPanel)
+            showLocationMenu()
+        }
+        binding.menuWindow.setOnClickListener {
+            binding.drawerLayout.closeDrawer(binding.drawerPanel)
+            showWindowMenu()
+        }
+        binding.menuPerms.setOnClickListener {
+            binding.drawerLayout.closeDrawer(binding.drawerPanel)
+            openPermissionGuides()
+        }
+        binding.menuLogin.setOnClickListener {
+            binding.drawerLayout.closeDrawer(binding.drawerPanel)
+            startActivity(Intent(this, LoginActivity::class.java))
+        }
+
+        // 未登录时点击「账号状态」卡片直接进入登录页
+        binding.cardAccount.setOnClickListener {
+            if (Prefs.getCookie(this).isBlank()) {
+                startActivity(Intent(this, LoginActivity::class.java))
+            }
+        }
 
         binding.cardLocation.setOnClickListener { showLocationMenu() }
 
@@ -149,12 +197,18 @@ class MainActivity : AppCompatActivity() {
 
         binding.tvAccount.text = getString(if (logged) R.string.logged_in else R.string.not_logged)
         binding.tvLast.text = Prefs.getLastResult(this) ?: getString(R.string.no_record)
-        binding.btnTheme.text = getString(if (Prefs.isDarkTheme(this)) R.string.theme_dark else R.string.theme_light)
+        // [旧主题按钮已迁移至侧边栏，待审查后删除]
+        // binding.btnTheme.text = getString(if (Prefs.isDarkTheme(this)) R.string.theme_dark else R.string.theme_light)
+        binding.tvDrawerWindow.text = Prefs.windowLabel(this)
         refreshLocationCard()
 
         updatingSwitch = true
         binding.switchService.isChecked = enabled
         updatingSwitch = false
+
+        updatingDarkSwitch = true
+        binding.switchDark.isChecked = Prefs.isDarkTheme(this)
+        updatingDarkSwitch = false
 
         refreshConsole()
     }
@@ -220,6 +274,61 @@ class MainActivity : AppCompatActivity() {
     private fun formatDistance(meters: Double): String =
         if (meters < 1000) String.format(Locale.US, "%.0f 米", meters)
         else String.format(Locale.US, "%.2f 公里", meters / 1000)
+
+    /** 测试打卡（侧边栏入口） */
+    private fun startTestCheckin() {
+        binding.progressBusy.visibility = View.VISIBLE
+        lifecycleScope.launch {
+            val result = withContext(Dispatchers.IO) { CheckinRunner.run(this@MainActivity) }
+            binding.progressBusy.visibility = View.GONE
+            Toast.makeText(this@MainActivity, result, Toast.LENGTH_SHORT).show()
+            refreshStatus()
+        }
+    }
+
+    /** 调整时间窗口：查看当前窗口 / 立即同步 / 重置默认 */
+    private fun showWindowMenu() {
+        val source = getString(
+            if (Prefs.isWindowSynced(this)) R.string.window_source_remote else R.string.window_source_default
+        )
+        MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.window_title)
+            .setMessage(getString(R.string.window_msg, Prefs.windowLabel(this), source))
+            .setPositiveButton(R.string.window_sync_btn) { _, _ -> syncWindowNow() }
+            .setNeutralButton(R.string.window_reset_btn) { _, _ ->
+                Prefs.resetWindow(this)
+                LogStore.append(this, getString(R.string.window_reset_done))
+                AlarmScheduler.ensureScheduled(this)
+                refreshStatus()
+            }
+            .setNegativeButton(R.string.window_close, null)
+            .show()
+    }
+
+    /** 立即从服务端同步时间窗口（需要已登录） */
+    private fun syncWindowNow() {
+        val cookie = Prefs.getCookie(this)
+        if (cookie.isBlank()) {
+            Toast.makeText(this, R.string.not_logged, Toast.LENGTH_SHORT).show()
+            return
+        }
+        binding.progressBusy.visibility = View.VISIBLE
+        lifecycleScope.launch {
+            val ok = withContext(Dispatchers.IO) {
+                RemoteSync.refreshSchedule(this@MainActivity, CheckinApi(cookie))
+            }
+            binding.progressBusy.visibility = View.GONE
+            val msg = if (ok) {
+                getString(R.string.window_sync_ok, Prefs.windowLabel(this@MainActivity))
+            } else {
+                getString(R.string.window_sync_fail)
+            }
+            LogStore.append(this@MainActivity, "[窗口] $msg")
+            Toast.makeText(this@MainActivity, msg, Toast.LENGTH_SHORT).show()
+            AlarmScheduler.ensureScheduled(this@MainActivity)
+            refreshStatus()
+        }
+    }
 
     /** 脚本定位设置菜单 */
     private fun showLocationMenu() {

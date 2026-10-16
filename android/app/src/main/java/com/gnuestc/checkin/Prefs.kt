@@ -2,6 +2,7 @@ package com.gnuestc.checkin
 
 import android.content.Context
 import android.content.res.Configuration
+import java.util.Locale
 
 /**
  * 本地配置存取。
@@ -21,6 +22,9 @@ object Prefs {
     private const val KEY_DEF_LNG = "def_lng"
     private const val KEY_DEF_NAME = "def_name"
     private const val KEY_DEF_RADIUS = "def_radius"
+    private const val KEY_WIN_START = "win_start_minute"
+    private const val KEY_WIN_END = "win_end_minute"
+    private const val KEY_WIN_SYNCED = "win_synced"
 
     fun getCookie(c: Context): String = sp(c).getString(KEY_COOKIE, "") ?: ""
     fun setCookie(c: Context, v: String) = sp(c).edit().putString(KEY_COOKIE, v).apply()
@@ -88,6 +92,38 @@ object Prefs {
         sp(c).getString(KEY_DEF_RADIUS, null)?.toDoubleOrNull() ?: CheckinApi.FENCE_RADIUS_M
 
     fun isDefaultPointKnown(c: Context): Boolean = sp(c).contains(KEY_DEF_LAT)
+
+    /** 打卡时间窗口（当天 00:00 起的分钟数）：默认 21:05–23:30，登录/打卡时自动同步服务端覆盖 */
+    fun setWindow(c: Context, startMinute: Int, endMinute: Int, synced: Boolean) {
+        sp(c).edit()
+            .putInt(KEY_WIN_START, startMinute)
+            .putInt(KEY_WIN_END, endMinute)
+            .putBoolean(KEY_WIN_SYNCED, synced)
+            .apply()
+    }
+
+    fun getWindowStartMinute(c: Context): Int =
+        sp(c).getInt(KEY_WIN_START, DEFAULT_WINDOW_START_MINUTE)
+
+    fun getWindowEndMinute(c: Context): Int =
+        sp(c).getInt(KEY_WIN_END, DEFAULT_WINDOW_END_MINUTE)
+
+    fun isWindowSynced(c: Context): Boolean = sp(c).getBoolean(KEY_WIN_SYNCED, false)
+
+    fun resetWindow(c: Context) {
+        sp(c).edit().remove(KEY_WIN_START).remove(KEY_WIN_END).remove(KEY_WIN_SYNCED).apply()
+    }
+
+    /** 形如 "21:05–23:30" 的窗口展示文案 */
+    fun windowLabel(c: Context): String = String.format(
+        Locale.US, "%02d:%02d–%02d:%02d",
+        getWindowStartMinute(c) / 60, getWindowStartMinute(c) % 60,
+        getWindowEndMinute(c) / 60, getWindowEndMinute(c) % 60
+    )
+
+    /** 默认窗口：21:05 触发 / 23:30 截止 */
+    const val DEFAULT_WINDOW_START_MINUTE = 21 * 60 + 5
+    const val DEFAULT_WINDOW_END_MINUTE = 23 * 60 + 30
 
     private fun sp(c: Context) = c.getSharedPreferences(NAME, Context.MODE_PRIVATE)
 }

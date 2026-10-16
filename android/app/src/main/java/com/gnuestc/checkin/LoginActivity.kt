@@ -179,25 +179,10 @@ class LoginActivity : AppCompatActivity() {
                     val resp = CheckinApi(cookie).getToday()
                     val code = resp.optInt("code", -1)
                     if (code == 0) {
-                        // 顺带提取本账号的打卡点（服务端按学生/组团下发），失败不影响登录
-                        runCatching {
-                            val loc = CheckinApi(cookie).getAvailableLocations()
-                            if (loc.optInt("code", -1) == 0) {
-                                val item = loc.optJSONArray("data")?.optJSONObject(0)
-                                if (item != null) {
-                                    val lat = item.optDouble("latitude", Double.NaN)
-                                    val lng = item.optDouble("longitude", Double.NaN)
-                                    if (!lat.isNaN() && !lng.isNaN()) {
-                                        Prefs.setDefaultPoint(
-                                            this@LoginActivity,
-                                            lat, lng,
-                                            item.optString("groupName"),
-                                            item.optDouble("radiusMeter", CheckinApi.FENCE_RADIUS_M)
-                                        )
-                                    }
-                                }
-                            }
-                        }
+                        // 提取本账号打卡点与时间窗口（服务端按学生下发），失败不影响登录
+                        val api = CheckinApi(cookie)
+                        RemoteSync.refreshLocation(this@LoginActivity, api)
+                        RemoteSync.refreshSchedule(this@LoginActivity, api)
                         resp.optJSONObject("data")?.optString("studentName").orEmpty()
                     } else {
                         "ERR:服务端返回 code=$code ${resp.optString("msg")}"
@@ -216,7 +201,13 @@ class LoginActivity : AppCompatActivity() {
                         "[登录] 已获取本账号打卡点：${Prefs.getDefaultName(this@LoginActivity)}"
                     )
                 }
-                // 立即安排：未到点排 21:05；窗口内则 1 分钟后尽快补打
+                if (Prefs.isWindowSynced(this@LoginActivity)) {
+                    LogStore.append(
+                        this@LoginActivity,
+                        "[登录] 已同步时间窗口（${Prefs.windowLabel(this@LoginActivity)}）"
+                    )
+                }
+                // 立即安排：未到点排窗口开始时间；窗口内则 1 分钟后尽快补打
                 AlarmScheduler.ensureScheduled(this@LoginActivity)
                 Toast.makeText(
                     this@LoginActivity,

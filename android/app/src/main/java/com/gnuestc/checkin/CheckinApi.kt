@@ -36,6 +36,9 @@ class CheckinApi(cookie: String) {
     /** 本账号可用打卡地点（服务端按学生/组团下发：latitude/longitude/radiusMeter/groupName） */
     fun getAvailableLocations(): JSONObject = get("/checkin-location/available-locations")
 
+    /** 生效的打卡时间表（businessDate + studentCheckinStart/EndOffsetMinute，当天 00:00 起分钟偏移） */
+    fun getEffectiveSchedule(): JSONObject = get("/checkin-schedule/effective")
+
     fun checkin(latitude: Double, longitude: Double, reverseGeocode: String): JSONObject {
         val body = JSONObject().apply {
             put("latitude", latitude)

@@ -16,24 +16,9 @@ object CheckinRunner {
 
         val result = try {
             val api = CheckinApi(cookie)
-            // 刷新本账号打卡点（服务端按学生下发；失败不影响打卡流程）
-            runCatching {
-                val loc = api.getAvailableLocations()
-                if (loc.optInt("code", -1) == 0) {
-                    val item = loc.optJSONArray("data")?.optJSONObject(0)
-                    if (item != null) {
-                        val lat = item.optDouble("latitude", Double.NaN)
-                        val lng = item.optDouble("longitude", Double.NaN)
-                        if (!lat.isNaN() && !lng.isNaN()) {
-                            Prefs.setDefaultPoint(
-                                context, lat, lng,
-                                item.optString("groupName"),
-                                item.optDouble("radiusMeter", CheckinApi.FENCE_RADIUS_M)
-                            )
-                        }
-                    }
-                }
-            }
+            // 刷新本账号打卡点与时间窗口（服务端下发；失败不影响打卡流程）
+            RemoteSync.refreshLocation(context, api)
+            RemoteSync.refreshSchedule(context, api)
             val today = api.getToday()
             val status = today.optJSONObject("data")?.optString("recordStatusCode").orEmpty()
             when {

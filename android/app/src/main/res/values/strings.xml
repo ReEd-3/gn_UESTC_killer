@@ -14,14 +14,14 @@
     <string name="login_success">登录成功：%1$s，已保存会话并安排定时</string>
     <string name="test_now">立即测试打卡</string>
     <string name="permission_guide">权限检查/引导</string>
-    <string name="guide_text">首次使用：点「登录账号」，在页面中完成学校统一身份认证登录，App 会自动保存会话并设置定时。\n自动打卡时间：每天 21:05（窗口 21:00–23:30），失败自动重试。\n建议在系统设置中允许「自启动」「后台运行」并关闭电池优化，否则部分机型到点可能不触发。</string>
-    <string name="dashboard_subtitle">系统级定时打卡 · 21:00–23:30</string>
+    <string name="guide_text">首次使用：点「登录账号」，在页面中完成学校统一身份认证登录，App 会自动保存会话并设置定时。\n自动打卡时间：窗口自动同步服务端（默认 21:05–23:30），失败自动重试。\n建议在系统设置中允许「自启动」「后台运行」并关闭电池优化，否则部分机型到点可能不触发。</string>
+    <string name="dashboard_subtitle">系统级定时打卡 · 无需后台常驻</string>
     <string name="theme_light">☀ 浅色</string>
     <string name="theme_dark">🌙 深色</string>
     <string name="service_on_title">服务运行中</string>
     <string name="service_off_title">服务已停止</string>
     <string name="service_wait_title">等待登录</string>
-    <string name="service_on_sub">到点自动打卡（21:05 起，窗口内自动重试）</string>
+    <string name="service_on_sub">到点自动打卡（窗口内失败自动重试）</string>
     <string name="service_off_sub">打开开关后恢复自动打卡</string>
     <string name="service_wait_sub">登录后自动生效，无需保持应用打开</string>
     <string name="next_prefix">下次打卡：</string>
@@ -52,7 +52,7 @@
     <string name="about_cd">应用介绍</string>
     <string name="about_title">关于晚安打卡助手</string>
     <string name="about_ok">知道了</string>
-    <string name="about_content">晚安打卡助手\n本应用旨在帮你自动完成「晚安成电」的定时打卡，不用每天惦记。\n\n主要功能\n· 一次登录，自动抓取并保存cookie，无需反复登录\n· 每天 21:05 自动打卡（21:00–23:30 窗口内失败自动重试）\n· 打卡结果通过系统通知与运行日志实时反馈\n· 后台服务开关，随时暂停或恢复自动打卡\n\n脚本定位\n· 默认使用服务端下发的打卡点（自动识别所在组团）\n· 支持地图选点 / 使用手机当前位置 / 手动输入坐标\n· 在首页「脚本定位」卡片中随时调整\n\n说明\n· 打卡请求直接提交至学校服务器，应用不收集、不上传任何个人信息\n· 登录会话仅保存在本机，卸载即清除\n\n祝每天晚安好梦。\n</string>
+    <string name="about_content">晚安打卡助手\n本应用旨在帮你自动完成「晚安成电」的定时打卡，不用每天惦记。\n\n主要功能\n· 一次登录，自动抓取并保存cookie，无需反复登录\n· 每天按时自动打卡（窗口自动同步服务端，默认 21:05–23:30）\n· 打卡结果通过系统通知与运行日志实时反馈\n· 后台服务开关，随时暂停或恢复自动打卡\n\n脚本定位\n· 默认使用服务端下发的打卡点（自动识别所在组团）\n· 支持地图选点 / 使用手机当前位置 / 手动输入坐标\n· 在首页「脚本定位」卡片中随时调整\n\n说明\n· 打卡请求直接提交至学校服务器，应用不收集、不上传任何个人信息\n· 登录会话仅保存在本机，卸载即清除\n\n祝每天晚安好梦。\n</string>
     <string name="location_perm_needed">需要定位权限才能获取当前位置</string>
     <string name="location_gps_failed">获取定位失败，请确认已开启定位服务</string>
     <string name="map_pick_title">选择定位点</string>
@@ -63,4 +63,18 @@
     <string name="manual_hint_note">坐标与高德、腾讯地图一致；地图选点取得的即是 GCJ02</string>
     <string name="manual_invalid">坐标无效，请检查范围和格式</string>
     <string name="manual_save">保存</string>
+    <string name="menu_cd">菜单</string>
+    <string name="drawer_subtitle">晚安成电 · 自动打卡助手</string>
+    <string name="drawer_dark">深色模式</string>
+    <string name="drawer_window">调整时间窗口</string>
+    <string name="window_title">打卡时间窗口</string>
+    <string name="window_msg">当前：%1$s（%2$s）\n\n打卡会在窗口开始后自动执行，窗口内失败自动重试；每次登录和打卡时会自动从服务端同步窗口。</string>
+    <string name="window_source_remote">服务端同步</string>
+    <string name="window_source_default">本地默认</string>
+    <string name="window_sync_btn">立即同步</string>
+    <string name="window_reset_btn">重置默认</string>
+    <string name="window_close">关闭</string>
+    <string name="window_sync_ok">已同步时间窗口：%1$s</string>
+    <string name="window_sync_fail">同步失败（网络或会话问题），已保持当前设置</string>
+    <string name="window_reset_done">已重置为默认时间窗口（21:05–23:30）</string>
 </resources>
