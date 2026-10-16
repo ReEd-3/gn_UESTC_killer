@@ -1,0 +1,93 @@
+package com.gnuestc.checkin
+
+import android.content.Context
+import android.content.res.Configuration
+
+/**
+ * 本地配置存取。
+ * 注意：SESSION Cookie 目前用普通私有 SharedPreferences 存储（侧载自用够用）；
+ * 后续可换 Keystore 加密存储，见 README 的安全说明。
+ */
+object Prefs {
+    private const val NAME = "gn_checkin"
+    private const val KEY_COOKIE = "session_cookie"
+    private const val KEY_LAST = "last_result"
+    private const val KEY_NEXT = "next_trigger"
+    private const val KEY_SERVICE = "service_enabled"
+    private const val KEY_DARK = "dark_theme"
+    private const val KEY_LOC_LAT = "loc_lat"
+    private const val KEY_LOC_LNG = "loc_lng"
+    private const val KEY_DEF_LAT = "def_lat"
+    private const val KEY_DEF_LNG = "def_lng"
+    private const val KEY_DEF_NAME = "def_name"
+    private const val KEY_DEF_RADIUS = "def_radius"
+
+    fun getCookie(c: Context): String = sp(c).getString(KEY_COOKIE, "") ?: ""
+    fun setCookie(c: Context, v: String) = sp(c).edit().putString(KEY_COOKIE, v).apply()
+
+    fun setLastResult(c: Context, v: String) = sp(c).edit().putString(KEY_LAST, v).apply()
+    fun getLastResult(c: Context): String? = sp(c).getString(KEY_LAST, null)
+
+    fun setNextTrigger(c: Context, millis: Long) = sp(c).edit().putLong(KEY_NEXT, millis).apply()
+    fun getNextTrigger(c: Context): Long = sp(c).getLong(KEY_NEXT, 0L)
+
+    /** 后台打卡服务总开关（默认开启） */
+    fun setServiceEnabled(c: Context, enabled: Boolean) = sp(c).edit().putBoolean(KEY_SERVICE, enabled).apply()
+    fun isServiceEnabled(c: Context): Boolean = sp(c).getBoolean(KEY_SERVICE, true)
+
+    /** 深色主题：首次启动跟随系统，之后以用户选择为准 */
+    fun isDarkTheme(c: Context): Boolean {
+        val sp = sp(c)
+        if (sp.contains(KEY_DARK)) return sp.getBoolean(KEY_DARK, true)
+        return (c.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
+            Configuration.UI_MODE_NIGHT_YES
+    }
+
+    fun setDarkTheme(c: Context, dark: Boolean) = sp(c).edit().putBoolean(KEY_DARK, dark).apply()
+
+    /** 脚本定位点（GCJ02）；未设置过时用「本账号默认打卡点」 */
+    fun setLocation(c: Context, lat: Double, lng: Double) {
+        sp(c).edit()
+            .putString(KEY_LOC_LAT, lat.toString())
+            .putString(KEY_LOC_LNG, lng.toString())
+            .apply()
+    }
+
+    fun getLocationLat(c: Context): Double =
+        sp(c).getString(KEY_LOC_LAT, null)?.toDoubleOrNull() ?: getDefaultLat(c)
+
+    fun getLocationLng(c: Context): Double =
+        sp(c).getString(KEY_LOC_LNG, null)?.toDoubleOrNull() ?: getDefaultLng(c)
+
+    fun isCustomLocation(c: Context): Boolean = sp(c).contains(KEY_LOC_LAT)
+
+    fun resetLocation(c: Context) {
+        sp(c).edit().remove(KEY_LOC_LAT).remove(KEY_LOC_LNG).apply()
+    }
+
+    /** 本账号默认打卡点（登录后从服务端提取；未提取到时用内置兜底值） */
+    fun setDefaultPoint(c: Context, lat: Double, lng: Double, name: String, radiusMeters: Double) {
+        sp(c).edit()
+            .putString(KEY_DEF_LAT, lat.toString())
+            .putString(KEY_DEF_LNG, lng.toString())
+            .putString(KEY_DEF_NAME, name)
+            .putString(KEY_DEF_RADIUS, radiusMeters.toString())
+            .apply()
+    }
+
+    fun getDefaultLat(c: Context): Double =
+        sp(c).getString(KEY_DEF_LAT, null)?.toDoubleOrNull() ?: CheckinApi.LATITUDE
+
+    fun getDefaultLng(c: Context): Double =
+        sp(c).getString(KEY_DEF_LNG, null)?.toDoubleOrNull() ?: CheckinApi.LONGITUDE
+
+    fun getDefaultName(c: Context): String =
+        sp(c).getString(KEY_DEF_NAME, null)?.ifBlank { "打卡点" } ?: "打卡点"
+
+    fun getDefaultRadius(c: Context): Double =
+        sp(c).getString(KEY_DEF_RADIUS, null)?.toDoubleOrNull() ?: CheckinApi.FENCE_RADIUS_M
+
+    fun isDefaultPointKnown(c: Context): Boolean = sp(c).contains(KEY_DEF_LAT)
+
+    private fun sp(c: Context) = c.getSharedPreferences(NAME, Context.MODE_PRIVATE)
+}

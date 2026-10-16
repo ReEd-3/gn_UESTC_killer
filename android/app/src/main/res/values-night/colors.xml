@@ -1,0 +1,14 @@
+<resources>
+    <color name="bg">#0F1216</color>
+    <color name="card">#191E25</color>
+    <color name="card_stroke">#252C35</color>
+    <color name="text_primary">#ECF0F5</color>
+    <color name="text_secondary">#8A94A6</color>
+    <color name="accent">#4E7DFF</color>
+    <color name="accent_text">#FFFFFF</color>
+    <color name="dot_on">#34D399</color>
+    <color name="dot_off">#6B7280</color>
+    <color name="dot_warn">#FBBF24</color>
+    <color name="console_text">#AAB4C2</color>
+    <color name="pill_bg">#232A33</color>
+</resources>

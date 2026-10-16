@@ -1,0 +1,36 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Android: 编译 Debug APK",
+            "type": "shell",
+            "command": ".\\gradlew.bat assembleDebug",
+            "options": {
+                "cwd": "${workspaceFolder}\\android"
+            },
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Android: 编译并安装到手机",
+            "type": "shell",
+            "command": ".\\gradlew.bat installDebug",
+            "options": {
+                "cwd": "${workspaceFolder}\\android"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Android: 清理构建产物",
+            "type": "shell",
+            "command": ".\\gradlew.bat clean",
+            "options": {
+                "cwd": "${workspaceFolder}\\android"
+            },
+            "problemMatcher": []
+        }
+    ]
+}

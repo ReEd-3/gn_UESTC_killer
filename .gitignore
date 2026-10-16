@@ -1,0 +1,23 @@
+# ── Android / Gradle 构建产物与本地配置 ──
+android/.gradle/
+android/.kotlin/
+android/.idea/
+android/local.properties
+android/app/build/
+android/build/
+android/captures/
+android/.cxx/
+*.iml
+*.apk
+
+# ── Python（预留） ──
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# ── 系统 / 编辑器杂物 ──
+.DS_Store
+Thumbs.db
+*.log

@@ -1,0 +1,19 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "node-terminal",
+            "request": "launch",
+            "name": "Android: 编译 Debug APK",
+            "command": ".\\gradlew.bat assembleDebug",
+            "cwd": "${workspaceFolder}\\android"
+        },
+        {
+            "type": "node-terminal",
+            "request": "launch",
+            "name": "Android: 编译并安装到手机",
+            "command": ".\\gradlew.bat installDebug",
+            "cwd": "${workspaceFolder}\\android"
+        }
+    ]
+}
