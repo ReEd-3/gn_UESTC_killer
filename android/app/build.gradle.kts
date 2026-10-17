@@ -19,6 +19,10 @@ android {
 
     buildTypes {
         release {
+            // [签名 2026-10-17] 使用 debug 签名打包：与现有安装同签名、可无缝覆盖升级；
+            // 正式对外分发前建议换独立 keystore。请备份 %USERPROFILE%\.android\debug.keystore，
+            // 丢失后无法对已安装用户发布「可覆盖升级」的新版本。
+            signingConfig = signingConfigs.getByName("debug")
             // [L0 加固 2026-10-17] 原配置：isMinifyEnabled = false（无混淆）
             // 开启 R8 代码混淆/压缩 + 资源压缩；保留规则见 proguard-rules.pro
             isMinifyEnabled = true
