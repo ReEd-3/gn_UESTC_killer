@@ -12,6 +12,8 @@ class CheckinReceiver : BroadcastReceiver() {
 
     override fun onReceive(context: Context, intent: Intent) {
         val appContext = context.applicationContext
+        // [修复 2026-10-17] 记录触发日志：便于判断"到点是否真的跑了"
+        LogStore.append(appContext, "[系统] 定时任务触发")
         val pending = goAsync()
         CoroutineScope(Dispatchers.IO).launch {
             try {
@@ -21,11 +23,16 @@ class CheckinReceiver : BroadcastReceiver() {
                 }
                 val result = CheckinRunner.run(appContext)
                 Notifier.show(appContext, result)
-                if (CheckinRunner.isFinal(result)) {
-                    AlarmScheduler.scheduleDaily(appContext)
-                } else {
-                    AlarmScheduler.scheduleRetry(appContext)
-                }
+                // [修复 2026-10-17] 先重排下一次闹钟，再做附加同步：即使进程随后被回收，
+                // 打卡结果与下一次定时也不会丢
+                CheckinRunner.rescheduleAfterRun(appContext, result)
+                CheckinRunner.syncExtras(appContext)
+                // [原实现保留备查]
+                // if (CheckinRunner.isFinal(result)) {
+                //     AlarmScheduler.scheduleDaily(appContext)
+                // } else {
+                //     AlarmScheduler.scheduleRetry(appContext)
+                // }
             } catch (t: Throwable) {
                 Notifier.show(appContext, "打卡异常：${t.message}")
                 LogStore.append(appContext, "[打卡] 异常：${t.message}")

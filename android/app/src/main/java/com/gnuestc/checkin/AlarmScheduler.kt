@@ -38,6 +38,20 @@ object AlarmScheduler {
         Prefs.setNextTrigger(context, 0L)
     }
 
+    // [修复 2026-10-17] 原实现保留备查（窗口内不看"今日已打卡"、且每次都会 set() 覆盖旧闹钟）：
+    // fun ensureScheduled(context: Context) {
+    //     if (!Prefs.isServiceEnabled(context)) return
+    //     if (Prefs.getCookie(context).isBlank()) return
+    //     val now = System.currentTimeMillis()
+    //     val start = todayAtMinute(Prefs.getWindowStartMinute(context))
+    //     val end = todayAtMinute(Prefs.getWindowEndMinute(context))
+    //     val next = when {
+    //         now < start -> start
+    //         now <= end -> now + 60_000L
+    //         else -> start + 24L * 60 * 60 * 1000
+    //     }
+    //     set(context, next)
+    // }
     fun ensureScheduled(context: Context) {
         if (!Prefs.isServiceEnabled(context)) return
         if (Prefs.getCookie(context).isBlank()) return
@@ -45,11 +59,23 @@ object AlarmScheduler {
         val start = todayAtMinute(Prefs.getWindowStartMinute(context))
         val end = todayAtMinute(Prefs.getWindowEndMinute(context))
         val next = when {
+            Prefs.isCheckedToday(context) -> nextDailyTrigger(context)
             now < start -> start
             now <= end -> now + 60_000L
-            else -> start + 24L * 60 * 60 * 1000
+            else -> nextDailyTrigger(context)
         }
+        // [修复 2026-10-17] 不覆盖"更早的待触发闹钟"：此前每次打开应用都会把闹钟推后 1 分钟，
+        // 导致"打开 → +1 分钟 → 再打开 → 再 +1 分钟"的循环，闹钟永远差一点没跑
+        val pending = Prefs.getNextTrigger(context)
+        if (pending > now && pending <= next) return
         set(context, next)
+    }
+
+    /** 当前是否处于今天的打卡窗口内（供"打开应用即补打"判断） */
+    fun isInWindowNow(context: Context): Boolean {
+        val now = System.currentTimeMillis()
+        return now >= todayAtMinute(Prefs.getWindowStartMinute(context)) &&
+            now <= todayAtMinute(Prefs.getWindowEndMinute(context))
     }
 
     fun canScheduleExact(context: Context): Boolean =
@@ -61,12 +87,38 @@ object AlarmScheduler {
         return SimpleDateFormat("MM-dd HH:mm", Locale.getDefault()).format(Date(t))
     }
 
+    // [修复 2026-10-17] 原实现保留备查：
+    // private fun set(context: Context, triggerAtMillis: Long) {
+    //     alarmManager(context).setExactAndAllowWhileIdle(
+    //         AlarmManager.RTC_WAKEUP, triggerAtMillis, pendingIntent(context)
+    //     )
+    //     Prefs.setNextTrigger(context, triggerAtMillis)
+    // }
+
+    /**
+     * [修复 2026-10-17] 优先用 setAlarmClock（系统最高优先级，不受休眠/省电延后；
+     * 代价：状态栏会常驻闹钟图标），失败（如未授予精确闹钟权限）则回退 setExactAndAllowWhileIdle。
+     */
     private fun set(context: Context, triggerAtMillis: Long) {
-        alarmManager(context).setExactAndAllowWhileIdle(
-            AlarmManager.RTC_WAKEUP, triggerAtMillis, pendingIntent(context)
-        )
-        Prefs.setNextTrigger(context, triggerAtMillis)
+        val am = alarmManager(context)
+        val pi = pendingIntent(context)
+        val ok = runCatching {
+            am.setAlarmClock(AlarmManager.AlarmClockInfo(triggerAtMillis, showIntent(context)), pi)
+        }.isSuccess || runCatching {
+            am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAtMillis, pi)
+        }.isSuccess
+        if (!ok) LogStore.append(context, "[系统] 闹钟安排失败（精确闹钟权限未授予）")
+        Prefs.setNextTrigger(context, if (ok) triggerAtMillis else 0L)
     }
+
+    /** setAlarmClock 的"点击闹钟图标打开应用"入口 */
+    private fun showIntent(context: Context): PendingIntent =
+        PendingIntent.getActivity(
+            context,
+            REQUEST_CODE + 1,
+            Intent(context, MainActivity::class.java),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
 
     /** 下一次每日触发：今天的窗口开始时间（默认 21:05），已过则明天 */
     private fun nextDailyTrigger(context: Context): Long {

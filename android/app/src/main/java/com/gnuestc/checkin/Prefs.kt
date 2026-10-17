@@ -2,6 +2,7 @@ package com.gnuestc.checkin
 
 import android.content.Context
 import android.content.res.Configuration
+import java.time.LocalDate
 import java.util.Locale
 
 /**
@@ -26,6 +27,7 @@ object Prefs {
     private const val KEY_WIN_END = "win_end_minute"
     private const val KEY_WIN_SYNCED = "win_synced"
     private const val KEY_LOG_COLLAPSED = "log_collapsed"
+    private const val KEY_CHECKED_DATE = "checked_date"
     private const val KEY_FIRST_RUN_GUIDE = "first_run_guide_shown"
 
     // [加密改造 2026-10-17] 原明文实现保留备查：
@@ -138,6 +140,16 @@ object Prefs {
         sp(c).edit().putBoolean(KEY_LOG_COLLAPSED, collapsed).apply()
 
     fun isLogCollapsed(c: Context): Boolean = sp(c).getBoolean(KEY_LOG_COLLAPSED, false)
+
+    /**
+     * [修复 2026-10-17] 记录"当天已完成打卡处理"（成功 / 已打卡 / 跳过）。
+     * 用于：避免重复安排"尽快补打"，以及打开应用时反复前台补打打扰用户。
+     */
+    fun markCheckedToday(c: Context) =
+        sp(c).edit().putString(KEY_CHECKED_DATE, LocalDate.now().toString()).apply()
+
+    fun isCheckedToday(c: Context): Boolean =
+        sp(c).getString(KEY_CHECKED_DATE, null) == LocalDate.now().toString()
 
     /** 首次打开的使用须知是否已展示并确认过 */
     fun setFirstRunGuideShown(c: Context, shown: Boolean) =

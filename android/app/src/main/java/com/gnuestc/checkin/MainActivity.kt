@@ -48,6 +48,9 @@ class MainActivity : AppCompatActivity() {
     // private var updatingDarkSwitch = false
     private var dotColor = 0
     private var logAnimator: ValueAnimator? = null
+    // [修复 2026-10-17] 打开应用时「前台自动补打」的运行标记与节流时间
+    private var catchUpRunning = false
+    private var lastCatchUpAt = 0L
     private var pendingGpsRequest = false
     private val reqLocationCode = 1001
 
@@ -218,6 +221,8 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         refreshStatus()
+        // [修复 2026-10-17] 窗口内打开应用 → 立即前台补打（替代此前"排 1 分钟后等闹钟"的做法）
+        maybeRunForegroundCatchUp()
     }
 
     /** 刷新所有状态展示 */
@@ -465,7 +470,41 @@ class MainActivity : AppCompatActivity() {
         binding.progressBusy.visibility = View.VISIBLE
         lifecycleScope.launch {
             val result = withContext(Dispatchers.IO) { CheckinRunner.run(this@MainActivity) }
+            withContext(Dispatchers.IO) {
+                CheckinRunner.rescheduleAfterRun(this@MainActivity, result)
+                CheckinRunner.syncExtras(this@MainActivity)
+            }
             binding.progressBusy.visibility = View.GONE
+            Toast.makeText(this@MainActivity, result, Toast.LENGTH_SHORT).show()
+            refreshStatus()
+        }
+    }
+
+    /**
+     * [修复 2026-10-17] 「打开即补打」：应用处于打卡窗口、已登录、今天还未完成时，
+     * 立即在前台执行一次打卡（先查状态，已打卡不会重复提交），
+     * 替代旧的"打开→安排 1 分钟后闹钟→再打开又推后 1 分钟"的死循环。
+     */
+    private fun maybeRunForegroundCatchUp() {
+        if (catchUpRunning) return
+        if (!Prefs.isServiceEnabled(this)) return
+        if (Prefs.getCookie(this).isBlank()) return
+        if (!AlarmScheduler.isInWindowNow(this)) return
+        if (Prefs.isCheckedToday(this)) return
+        val now = System.currentTimeMillis()
+        if (now - lastCatchUpAt < 2 * 60_000L) return
+        lastCatchUpAt = now
+        catchUpRunning = true
+        binding.progressBusy.visibility = View.VISIBLE
+        LogStore.append(this, "[系统] 检测到窗口内未打卡，自动补打…")
+        lifecycleScope.launch {
+            val result = withContext(Dispatchers.IO) { CheckinRunner.run(this@MainActivity) }
+            withContext(Dispatchers.IO) {
+                CheckinRunner.rescheduleAfterRun(this@MainActivity, result)
+                CheckinRunner.syncExtras(this@MainActivity)
+            }
+            binding.progressBusy.visibility = View.GONE
+            catchUpRunning = false
             Toast.makeText(this@MainActivity, result, Toast.LENGTH_SHORT).show()
             refreshStatus()
         }

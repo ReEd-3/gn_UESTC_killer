@@ -2,9 +2,15 @@ package com.gnuestc.checkin
 
 import android.content.Context
 
-/** 单次打卡尝试的共用逻辑：闹钟接收器与主界面「测试」按钮都走这里 */
+/**
+ * 单次打卡尝试的共用逻辑：闹钟接收器、主界面「测试」按钮、打开应用时的自动补打都走这里。
+ *
+ * [修复 2026-10-17] 流程精简：先查今日状态并立即打卡（关键路径），
+ * 打卡点/时间窗口等附加同步挪到打卡之后再执行（尽力而为，不影响打卡结果）。
+ */
 object CheckinRunner {
 
+    /** 关键路径：查询今日状态 → 必要时立即打卡；返回结果文案 */
     fun run(context: Context): String {
         val cookie = Prefs.getCookie(context)
         if (cookie.isBlank()) {
@@ -16,13 +22,18 @@ object CheckinRunner {
 
         val result = try {
             val api = CheckinApi(cookie)
-            // 刷新本账号打卡点与时间窗口（服务端下发；失败不影响打卡流程）
-            RemoteSync.refreshLocation(context, api)
-            RemoteSync.refreshSchedule(context, api)
+            // [修复 2026-10-17] 原实现在此先做了两次附加同步（打卡点/时间窗口），
+            // 现将它们移到打卡成功之后再执行（
+            //     RemoteSync.refreshLocation(context, api)
+            //     RemoteSync.refreshSchedule(context, api)
+            // ），缩短关键路径耗时
             val today = api.getToday()
             val status = today.optJSONObject("data")?.optString("recordStatusCode").orEmpty()
             when {
-                status == "CHECKED_IN" -> "今日已打卡，无需操作"
+                status == "CHECKED_IN" -> {
+                    Prefs.markCheckedToday(context)
+                    "今日已打卡，无需操作"
+                }
                 status.isEmpty() || status == "PENDING" -> {
                     // 使用用户配置的「脚本定位」（默认 = 打卡点本身）
                     val resp = api.checkin(
@@ -31,13 +42,22 @@ object CheckinRunner {
                         CheckinApi.REVERSE_GEOCODE
                     )
                     when (resp.optInt("code")) {
-                        0 -> "打卡成功"
-                        4006 -> "今日已完成打卡（服务端判定）"
+                        0 -> {
+                            Prefs.markCheckedToday(context)
+                            "打卡成功"
+                        }
+                        4006 -> {
+                            Prefs.markCheckedToday(context)
+                            "今日已完成打卡（服务端判定）"
+                        }
                         else -> "打卡失败：${resp.optString("msg")}"
                     }
                 }
                 // INSTRUCTOR_REPORTED / STUDENT_REPORTED 等情况不主动打卡，避免覆盖已有登记
-                else -> "当前状态 $status，跳过打卡"
+                else -> {
+                    Prefs.markCheckedToday(context)
+                    "当前状态 $status，跳过打卡"
+                }
             }
         } catch (e: Exception) {
             // 会话失效时接口会返回登录页 HTML，JSON 解析失败也走这里
@@ -46,6 +66,23 @@ object CheckinRunner {
         Prefs.setLastResult(context, result)
         LogStore.append(context, "[打卡] $result")
         return result
+    }
+
+    /** 附加同步（打卡点 / 时间窗口）：尽力而为，失败静默 */
+    fun syncExtras(context: Context) {
+        val cookie = Prefs.getCookie(context)
+        if (cookie.isBlank()) return
+        runCatching {
+            val api = CheckinApi(cookie)
+            RemoteSync.refreshLocation(context, api)
+            RemoteSync.refreshSchedule(context, api)
+        }
+    }
+
+    /** 打卡后统一重排闹钟：终态 → 明天窗口；否则 → 窗口内 5 分钟后重试 */
+    fun rescheduleAfterRun(context: Context, result: String) {
+        if (isFinal(result)) AlarmScheduler.scheduleDaily(context)
+        else AlarmScheduler.scheduleRetry(context)
     }
 
     /** 结果是否属于「不需要再重试」 */

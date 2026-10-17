@@ -22,9 +22,12 @@ class CheckinApi(cookie: String) {
     // 容忍用户只粘贴值（无 "SESSION=" 前缀）的情况
     private val cookieHeader = if (cookie.contains("=")) cookie else "SESSION=$cookie"
 
+    // [修复 2026-10-17] 精简耗时：超时 8s→6s，并给单次请求加 15s 总上限，
+    // 避免后台执行时网络慢拖太久、被系统回收导致"什么都没发生"
     private val client = OkHttpClient.Builder()
-        .connectTimeout(8, TimeUnit.SECONDS)
-        .readTimeout(8, TimeUnit.SECONDS)
+        .connectTimeout(6, TimeUnit.SECONDS)
+        .readTimeout(6, TimeUnit.SECONDS)
+        .callTimeout(15, TimeUnit.SECONDS)
         .build()
 
     private val jsonType = "application/json; charset=utf-8".toMediaType()
