@@ -13,10 +13,13 @@ import android.os.Build
 import android.os.Bundle
 import android.os.PowerManager
 import android.provider.Settings
+import android.text.method.LinkMovementMethod
+import android.text.util.Linkify
 import android.view.View
 import android.view.animation.DecelerateInterpolator
 import android.widget.EditText
 import android.widget.LinearLayout
+import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
@@ -324,7 +327,7 @@ class MainActivity : AppCompatActivity() {
 
         var cancelled = false
         logAnimator = ValueAnimator.ofInt(startH, endH).apply {
-            duration = 280
+            duration = 380
             interpolator = DecelerateInterpolator()
             addUpdateListener {
                 lp.height = it.animatedValue as Int
@@ -379,13 +382,21 @@ class MainActivity : AppCompatActivity() {
         binding.scrollConsole.post { binding.scrollConsole.fullScroll(View.FOCUS_DOWN) }
     }
 
-    /** 应用介绍（文本位于 strings.xml 的 about_content） */
+    /** 应用介绍（文本位于 strings.xml 的 about_content；其中的网址可点击打开） */
     private fun showAboutDialog() {
-        MaterialAlertDialogBuilder(this)
+        val dialog = MaterialAlertDialogBuilder(this)
             .setTitle(R.string.about_title)
             .setMessage(R.string.about_content)
             .setPositiveButton(R.string.about_ok, null)
-            .show()
+            .create()
+        // 纯文本消息默认不可点：让网址自动识别为链接（点击用浏览器打开）
+        dialog.setOnShowListener {
+            dialog.findViewById<TextView>(android.R.id.message)?.let { message ->
+                message.movementMethod = LinkMovementMethod.getInstance()
+                Linkify.addLinks(message, Linkify.WEB_URLS)
+            }
+        }
+        dialog.show()
     }
 
     // [脚本定位卡片已移入侧边栏，卡片刷新逻辑停用，待审查后删除]
