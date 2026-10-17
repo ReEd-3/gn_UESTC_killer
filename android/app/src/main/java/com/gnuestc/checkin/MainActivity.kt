@@ -13,9 +13,13 @@ import android.os.Build
 import android.os.Bundle
 import android.os.PowerManager
 import android.provider.Settings
-import android.text.method.LinkMovementMethod
+import android.text.Spannable
+import android.text.method.ArrowKeyMovementMethod
+import android.text.style.ClickableSpan
 import android.text.util.Linkify
+import android.view.MotionEvent
 import android.view.View
+import android.view.ViewConfiguration
 import android.view.animation.DecelerateInterpolator
 import android.widget.EditText
 import android.widget.LinearLayout
@@ -382,18 +386,19 @@ class MainActivity : AppCompatActivity() {
         binding.scrollConsole.post { binding.scrollConsole.fullScroll(View.FOCUS_DOWN) }
     }
 
-    /** 应用介绍（文本位于 strings.xml 的 about_content；其中的网址可点击打开） */
+    /** 应用介绍（文本位于 strings.xml 的 about_content；网址可轻点打开、文本可长按选中复制） */
     private fun showAboutDialog() {
         val dialog = MaterialAlertDialogBuilder(this)
             .setTitle(R.string.about_title)
             .setMessage(R.string.about_content)
             .setPositiveButton(R.string.about_ok, null)
             .create()
-        // 纯文本消息默认不可点：让网址自动识别为链接（点击用浏览器打开）
         dialog.setOnShowListener {
             dialog.findViewById<TextView>(android.R.id.message)?.let { message ->
-                message.movementMethod = LinkMovementMethod.getInstance()
+                // 1) 网址自动识别为可点击链接；2) 开启长按选择；3) 挂载兼容「链接点击 + 文本选择」的移动方法
                 Linkify.addLinks(message, Linkify.WEB_URLS)
+                message.setTextIsSelectable(true)
+                message.movementMethod = SelectableLinkMovementMethod()
             }
         }
         dialog.show()
@@ -601,5 +606,39 @@ class MainActivity : AppCompatActivity() {
         }
         LogStore.append(this, "[权限] 已就绪")
         Toast.makeText(this, "权限已就绪", Toast.LENGTH_SHORT).show()
+    }
+}
+
+/**
+ * 兼容「链接点击 + 文本长按选择」的移动方法：
+ * - 轻点（短于长按阈值）落在链接上 → 打开链接
+ * - 其余手势（长按选择、拖动选择等）→ 交给系统默认的 ArrowKeyMovementMethod 处理
+ */
+private class SelectableLinkMovementMethod : ArrowKeyMovementMethod() {
+
+    private var downTime = 0L
+
+    override fun onTouchEvent(widget: TextView, buffer: Spannable, event: MotionEvent): Boolean {
+        when (event.actionMasked) {
+            MotionEvent.ACTION_DOWN -> downTime = event.eventTime
+            MotionEvent.ACTION_UP -> {
+                val quickTap = event.eventTime - downTime < ViewConfiguration.getLongPressTimeout()
+                if (quickTap && openLinkIfHit(widget, buffer, event)) return true
+            }
+        }
+        return super.onTouchEvent(widget, buffer, event)
+    }
+
+    /** 命中链接则打开；返回是否命中 */
+    private fun openLinkIfHit(widget: TextView, buffer: Spannable, event: MotionEvent): Boolean {
+        val x = event.x.toInt() - widget.totalPaddingLeft + widget.scrollX
+        val y = event.y.toInt() - widget.totalPaddingTop + widget.scrollY
+        val layout = widget.layout ?: return false
+        val line = layout.getLineForVertical(y)
+        if (x < layout.getLineLeft(line) || x > layout.getLineRight(line)) return false
+        val offset = layout.getOffsetForHorizontal(line, x.toFloat())
+        val link = buffer.getSpans(offset, offset, ClickableSpan::class.java).firstOrNull() ?: return false
+        link.onClick(widget)
+        return true
     }
 }
