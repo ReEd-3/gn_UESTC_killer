@@ -19,8 +19,21 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            // [L0 加固 2026-10-17] 原配置：isMinifyEnabled = false（无混淆）
+            // 开启 R8 代码混淆/压缩 + 资源压缩；保留规则见 proguard-rules.pro
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
         }
+    }
+
+    lint {
+        // [L0 加固配套 2026-10-17] release 跳过 lintVital：
+        // 该任务需联网拉取 lint-gradle，镜像不稳定时会阻塞打包；如需恢复删除下面一行即可
+        checkReleaseBuilds = false
     }
 
     buildFeatures {
