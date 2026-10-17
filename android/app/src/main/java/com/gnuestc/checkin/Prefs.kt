@@ -6,8 +6,8 @@ import java.util.Locale
 
 /**
  * 本地配置存取。
- * 注意：SESSION Cookie 目前用普通私有 SharedPreferences 存储（侧载自用够用）；
- * 后续可换 Keystore 加密存储，见 README 的安全说明。
+ * 隐私相关数据（SESSION Cookie 等）经 SecretStore 使用 Android Keystore
+ * （AES-256-GCM）加密后写入；旧版本遗留的明文数据会在读取时自动迁移为密文。
  */
 object Prefs {
     private const val NAME = "gn_checkin"
@@ -26,8 +26,29 @@ object Prefs {
     private const val KEY_WIN_END = "win_end_minute"
     private const val KEY_WIN_SYNCED = "win_synced"
 
-    fun getCookie(c: Context): String = sp(c).getString(KEY_COOKIE, "") ?: ""
-    fun setCookie(c: Context, v: String) = sp(c).edit().putString(KEY_COOKIE, v).apply()
+    // [加密改造 2026-10-17] 原明文实现保留备查：
+    // fun getCookie(c: Context): String = sp(c).getString(KEY_COOKIE, "") ?: ""
+    // fun setCookie(c: Context, v: String) = sp(c).edit().putString(KEY_COOKIE, v).apply()
+    fun getCookie(c: Context): String {
+        val raw = sp(c).getString(KEY_COOKIE, "") ?: ""
+        if (raw.isBlank()) return ""
+        if (SecretStore.isEncrypted(raw)) {
+            val decrypted = SecretStore.decrypt(raw)
+            if (decrypted != null) return decrypted
+            // 密文无法解密（密钥失效或数据损坏）：清除坏数据，用户重新登录即可
+            sp(c).edit().remove(KEY_COOKIE).apply()
+            return ""
+        }
+        // 旧版本遗留的明文会话：本次读取后自动迁移为密文
+        setCookie(c, raw)
+        return raw
+    }
+
+    fun setCookie(c: Context, v: String) {
+        // 加密不可用时降级为原文写入，保证极端情况下登录态仍可用
+        val stored = if (v.isBlank()) v else (SecretStore.encrypt(v) ?: v)
+        sp(c).edit().putString(KEY_COOKIE, stored).apply()
+    }
 
     fun setLastResult(c: Context, v: String) = sp(c).edit().putString(KEY_LAST, v).apply()
     fun getLastResult(c: Context): String? = sp(c).getString(KEY_LAST, null)
