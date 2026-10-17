@@ -202,8 +202,12 @@ class MainActivity : AppCompatActivity() {
         }
         applyLogCollapsed(Prefs.isLogCollapsed(this))
 
-        if (Build.VERSION.SDK_INT >= 33) {
-            ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1)
+        // [首次引导 2026-10-17] 首次打开先弹「使用须知」，通知权限请求延后到引导确认后，
+        // 避免系统权限弹窗与引导弹窗叠在一起
+        if (!Prefs.isFirstRunGuideShown(this)) {
+            showFirstRunGuide()
+        } else {
+            requestNotificationPermissionIfNeeded()
         }
 
         // 每次打开 App 都确保定时已安排（被系统清理/强停后可自动恢复；窗口内打开会尽快补打）
@@ -402,6 +406,26 @@ class MainActivity : AppCompatActivity() {
             }
         }
         dialog.show()
+    }
+
+    /** 首次打开的使用须知引导（确认后记录标记，并补发通知权限请求） */
+    private fun showFirstRunGuide() {
+        MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.first_run_title)
+            .setMessage(R.string.first_run_content)
+            .setCancelable(false)
+            .setPositiveButton(R.string.first_run_ok) { _, _ ->
+                Prefs.setFirstRunGuideShown(this, true)
+                requestNotificationPermissionIfNeeded()
+            }
+            .show()
+    }
+
+    /** Android 13+ 请求通知权限（首次引导确认后或后续启动时调用） */
+    private fun requestNotificationPermissionIfNeeded() {
+        if (Build.VERSION.SDK_INT >= 33) {
+            ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1)
+        }
     }
 
     // [脚本定位卡片已移入侧边栏，卡片刷新逻辑停用，待审查后删除]

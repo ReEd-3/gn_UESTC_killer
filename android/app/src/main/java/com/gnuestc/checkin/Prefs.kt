@@ -26,6 +26,7 @@ object Prefs {
     private const val KEY_WIN_END = "win_end_minute"
     private const val KEY_WIN_SYNCED = "win_synced"
     private const val KEY_LOG_COLLAPSED = "log_collapsed"
+    private const val KEY_FIRST_RUN_GUIDE = "first_run_guide_shown"
 
     // [加密改造 2026-10-17] 原明文实现保留备查：
     // fun getCookie(c: Context): String = sp(c).getString(KEY_COOKIE, "") ?: ""
@@ -137,6 +138,12 @@ object Prefs {
         sp(c).edit().putBoolean(KEY_LOG_COLLAPSED, collapsed).apply()
 
     fun isLogCollapsed(c: Context): Boolean = sp(c).getBoolean(KEY_LOG_COLLAPSED, false)
+
+    /** 首次打开的使用须知是否已展示并确认过 */
+    fun setFirstRunGuideShown(c: Context, shown: Boolean) =
+        sp(c).edit().putBoolean(KEY_FIRST_RUN_GUIDE, shown).apply()
+
+    fun isFirstRunGuideShown(c: Context): Boolean = sp(c).getBoolean(KEY_FIRST_RUN_GUIDE, false)
 
     fun resetWindow(c: Context) {
         sp(c).edit().remove(KEY_WIN_START).remove(KEY_WIN_END).remove(KEY_WIN_SYNCED).apply()
