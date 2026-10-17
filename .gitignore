@@ -21,3 +21,6 @@ venv/
 .DS_Store
 Thumbs.db
 *.log
+
+# ── 本地素材（不纳入版本管理） ──
+Roxy_Migurdia_by_kappe.jpg
