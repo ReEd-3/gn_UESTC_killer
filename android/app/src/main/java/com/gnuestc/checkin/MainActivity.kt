@@ -1,6 +1,8 @@
 package com.gnuestc.checkin
 
 import android.Manifest
+import android.animation.Animator
+import android.animation.AnimatorListenerAdapter
 import android.animation.ArgbEvaluator
 import android.animation.ValueAnimator
 import android.content.Intent
@@ -12,7 +14,9 @@ import android.os.Bundle
 import android.os.PowerManager
 import android.provider.Settings
 import android.view.View
+import android.view.animation.DecelerateInterpolator
 import android.widget.EditText
+import android.widget.LinearLayout
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
@@ -36,6 +40,7 @@ class MainActivity : AppCompatActivity() {
     // [深色开关已移回右上角胶囊，待审查后删除]
     // private var updatingDarkSwitch = false
     private var dotColor = 0
+    private var logAnimator: ValueAnimator? = null
     private var pendingGpsRequest = false
     private val reqLocationCode = 1001
 
@@ -182,11 +187,11 @@ class MainActivity : AppCompatActivity() {
         // 圆形电源按钮：点击切换后台打卡服务
         binding.powerToggle.setOnClickListener { toggleService() }
 
-        // 日志区折叠/展开（状态记忆）
+        // 日志区折叠/展开（状态记忆 + 抽屉式推拉动画）
         binding.logHeader.setOnClickListener {
             val collapsed = !Prefs.isLogCollapsed(this)
             Prefs.setLogCollapsed(this, collapsed)
-            applyLogCollapsed(collapsed)
+            applyLogCollapsed(collapsed, animate = true)
         }
         applyLogCollapsed(Prefs.isLogCollapsed(this))
 
@@ -271,16 +276,81 @@ class MainActivity : AppCompatActivity() {
         refreshStatus()
     }
 
-    /** 应用日志折叠状态（折叠时用底部占位保持版本行位置） */
-    private fun applyLogCollapsed(collapsed: Boolean) {
-        binding.logCard.visibility = if (collapsed) View.GONE else View.VISIBLE
-        binding.spacerBottom.visibility = if (collapsed) View.VISIBLE else View.GONE
+    /** 应用日志折叠状态（animate=true 时抽屉式推拉动画，版本行保持固定底部） */
+    private fun applyLogCollapsed(collapsed: Boolean, animate: Boolean = false) {
         binding.tvLogToggle.text = getString(
             if (collapsed) R.string.log_expand_arrow else R.string.log_collapse_arrow
         )
         binding.logHeader.contentDescription = getString(
             if (collapsed) R.string.log_expand else R.string.log_collapse
         )
+
+        val card = binding.logCard
+        val spacer = binding.spacerBottom
+        val lp = card.layoutParams as LinearLayout.LayoutParams
+
+        if (!animate) {
+            // 初始状态直接应用（无动画）
+            logAnimator?.cancel()
+            logAnimator = null
+            lp.weight = if (collapsed) 0f else 1f
+            lp.height = 0
+            card.layoutParams = lp
+            card.visibility = if (collapsed) View.GONE else View.VISIBLE
+            spacer.visibility = if (collapsed) View.VISIBLE else View.GONE
+            return
+        }
+
+        val cardVisible = card.visibility == View.VISIBLE
+        if (collapsed && !cardVisible) return
+
+        // 推拉动画：仅改变日志卡高度，由底部占位 Space 吸收空间变化
+        logAnimator?.cancel()
+        spacer.visibility = View.VISIBLE
+        lp.weight = 0f
+        val startH: Int
+        if (cardVisible) {
+            startH = card.height
+        } else {
+            lp.height = 0
+            card.layoutParams = lp
+            card.visibility = View.VISIBLE
+            startH = 0
+        }
+        val endH = if (collapsed) 0 else startH + spacer.height
+
+        lp.height = startH
+        card.layoutParams = lp
+
+        var cancelled = false
+        logAnimator = ValueAnimator.ofInt(startH, endH).apply {
+            duration = 280
+            interpolator = DecelerateInterpolator()
+            addUpdateListener {
+                lp.height = it.animatedValue as Int
+                card.layoutParams = lp
+            }
+            addListener(object : AnimatorListenerAdapter() {
+                override fun onAnimationCancel(animation: Animator) {
+                    cancelled = true
+                }
+
+                override fun onAnimationEnd(animation: Animator) {
+                    if (cancelled) return
+                    if (collapsed) {
+                        card.visibility = View.GONE
+                        lp.height = 0
+                        card.layoutParams = lp
+                    } else {
+                        lp.weight = 1f
+                        lp.height = 0
+                        card.layoutParams = lp
+                        spacer.visibility = View.GONE
+                    }
+                }
+            })
+            start()
+        }
     }
 
     // [状态点已由圆形电源按钮取代，该方法保留备查，待审查后删除]

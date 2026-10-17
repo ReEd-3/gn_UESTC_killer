@@ -4,12 +4,11 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
-    <!-- 主内容 -->
+    <!-- 主内容（原 animateLayoutChanges="true" 已停用：与日志区推拉高度动画冲突） -->
     <LinearLayout
         android:id="@+id/mainContent"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:animateLayoutChanges="true"
         android:background="@color/bg"
         android:orientation="vertical">
 
