@@ -52,7 +52,7 @@
     <string name="about_cd">应用介绍</string>
     <string name="about_title">关于晚安打卡助手</string>
     <string name="about_ok">知道了</string>
-    <string name="about_content">晚安打卡助手\n本应用旨在帮你自动完成「晚安成电」的定时打卡，不用每天惦记。\n\n主要功能\n· 一次登录，自动抓取并保存cookie，无需反复登录\n· 每天按时自动打卡（窗口自动同步服务端，默认 21:05–23:30）\n· 打卡结果通过系统通知与运行日志实时反馈\n· 后台服务开关，随时暂停或恢复自动打卡\n\n脚本定位\n· 默认使用服务端下发的打卡点（自动识别所在组团）\n· 支持地图选点 / 使用手机当前位置 / 手动输入坐标\n· 在首页「脚本定位」卡片中随时调整\n\n说明\n· 打卡请求直接提交至学校服务器，应用不收集、不上传任何个人信息\n· 登录会话仅保存在本机，卸载即清除\n\n祝每天晚安好梦。\n</string>
+    <string name="about_content">晚安打卡助手\n本应用旨在帮你自动完成「晚安成电」的定时打卡，不用每天惦记。\n\n主要功能\n· 一次登录，自动抓取并保存cookie，无需反复登录\n· 每天按时自动打卡（窗口自动同步服务端，默认 21:05–23:30）\n· 打卡结果通过系统通知与运行日志实时反馈\n· 后台服务开关，随时暂停或恢复自动打卡\n\n脚本定位\n· 默认使用服务端下发的打卡点（自动识别所在组团）\n· 支持地图选点 / 使用手机当前位置 / 手动输入坐标\n· 在「脚本定位」功能中随时调整\n\n说明\n· 打卡请求直接提交至学校服务器，应用不收集、不上传任何个人信息\n· 登录会话仅保存在本机，卸载即清除\n\n祝每天晚安好梦。\n</string>
     <string name="location_perm_needed">需要定位权限才能获取当前位置</string>
     <string name="location_gps_failed">获取定位失败，请确认已开启定位服务</string>
     <string name="map_pick_title">选择定位点</string>
@@ -77,4 +77,10 @@
     <string name="window_sync_ok">已同步时间窗口：%1$s</string>
     <string name="window_sync_fail">同步失败（网络或会话问题），已保持当前设置</string>
     <string name="window_reset_done">已重置为默认时间窗口（21:05–23:30）</string>
+    <string name="btn_relogin_text">重新登录</string>
+    <string name="log_collapse_arrow">▾</string>
+    <string name="log_expand_arrow">▸</string>
+    <string name="log_collapse">折叠运行日志</string>
+    <string name="log_expand">展开运行日志</string>
+    <string name="power_toggle_cd">后台自动打卡服务开关</string>
 </resources>

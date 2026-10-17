@@ -68,57 +68,56 @@
                 android:textSize="12sp" />
         </LinearLayout>
 
-    <!-- 主卡片：服务状态 -->
+    <!-- 主卡片：服务状态（圆形电源开关） -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="14dp"
         android:background="@drawable/bg_card"
+        android:gravity="center_horizontal"
         android:orientation="vertical"
         android:padding="16dp">
 
-        <LinearLayout
-            android:layout_width="match_parent"
+        <!-- [状态点已由圆形电源按钮取代，待审查后删除]
+        <View
+            android:id="@+id/dotStatus"
+            android:layout_width="12dp"
+            android:layout_height="12dp" />
+        -->
+
+        <!-- 圆形电源开关：未开启灰色，开启绿色，切换带渐变动画 -->
+        <com.gnuestc.checkin.PowerToggleView
+            android:id="@+id/powerToggle"
+            android:layout_width="138dp"
+            android:layout_height="138dp"
+            android:layout_marginTop="4dp"
+            android:contentDescription="@string/power_toggle_cd" />
+
+        <ProgressBar
+            android:id="@+id/progressBusy"
+            style="?android:attr/progressBarStyleSmall"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:gravity="center_vertical"
-            android:orientation="horizontal">
+            android:layout_marginTop="8dp"
+            android:indeterminateTint="@color/accent"
+            android:visibility="gone" />
 
-            <View
-                android:id="@+id/dotStatus"
-                android:layout_width="12dp"
-                android:layout_height="12dp" />
-
-            <TextView
-                android:id="@+id/tvServiceTitle"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="10dp"
-                android:layout_weight="1"
-                android:text="@string/service_on_title"
-                android:textColor="@color/text_primary"
-                android:textSize="17sp"
-                android:textStyle="bold" />
-
-            <ProgressBar
-                android:id="@+id/progressBusy"
-                style="?android:attr/progressBarStyleSmall"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginEnd="12dp"
-                android:indeterminateTint="@color/accent"
-                android:visibility="gone" />
-
-            <com.google.android.material.materialswitch.MaterialSwitch
-                android:id="@+id/switchService"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content" />
-        </LinearLayout>
+        <TextView
+            android:id="@+id/tvServiceTitle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:text="@string/service_on_title"
+            android:textColor="@color/text_primary"
+            android:textSize="18sp"
+            android:textStyle="bold" />
 
         <TextView
             android:id="@+id/tvServiceSub"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
+            android:gravity="center"
             android:text="@string/service_on_sub"
             android:textColor="@color/text_secondary"
             android:textSize="13sp" />
@@ -128,8 +127,16 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="4dp"
+            android:gravity="center"
             android:textColor="@color/text_secondary"
             android:textSize="13sp" />
+
+        <!-- [旧开关已由 PowerToggleView 取代，待审查后删除]
+        <com.google.android.material.materialswitch.MaterialSwitch
+            android:id="@+id/switchService"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content" />
+        -->
     </LinearLayout>
 
     <!-- 信息卡片行 -->
@@ -319,22 +326,40 @@
     </LinearLayout>
     -->
 
-    <!-- 日志区 -->
+    <!-- 日志区（点击标题行可折叠/展开） -->
     <LinearLayout
+        android:id="@+id/logHeader"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="14dp"
+        android:layout_marginTop="12dp"
+        android:background="?attr/selectableItemBackground"
+        android:clickable="true"
+        android:focusable="true"
         android:gravity="center_vertical"
-        android:orientation="horizontal">
+        android:orientation="horizontal"
+        android:padding="4dp">
 
         <TextView
-            android:layout_width="0dp"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
             android:text="@string/log_section"
             android:textColor="@color/text_primary"
             android:textSize="15sp"
             android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/tvLogToggle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="6dp"
+            android:text="@string/log_collapse_arrow"
+            android:textColor="@color/text_secondary"
+            android:textSize="13sp" />
+
+        <Space
+            android:layout_width="0dp"
+            android:layout_height="1dp"
+            android:layout_weight="1" />
 
         <TextView
             android:id="@+id/btnClearLog"
@@ -347,6 +372,7 @@
     </LinearLayout>
 
     <LinearLayout
+        android:id="@+id/logCard"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_marginTop="8dp"
@@ -372,6 +398,14 @@
                 android:textSize="12sp" />
         </ScrollView>
     </LinearLayout>
+
+    <!-- 日志折叠时的占位，保证版本行仍固定底部 -->
+    <Space
+        android:id="@+id/spacerBottom"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:visibility="gone" />
 
     <!-- 底部：版本号 + 关于 -->
     <LinearLayout

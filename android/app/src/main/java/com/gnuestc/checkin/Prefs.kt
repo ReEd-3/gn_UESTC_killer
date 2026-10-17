@@ -25,6 +25,7 @@ object Prefs {
     private const val KEY_WIN_START = "win_start_minute"
     private const val KEY_WIN_END = "win_end_minute"
     private const val KEY_WIN_SYNCED = "win_synced"
+    private const val KEY_LOG_COLLAPSED = "log_collapsed"
 
     // [加密改造 2026-10-17] 原明文实现保留备查：
     // fun getCookie(c: Context): String = sp(c).getString(KEY_COOKIE, "") ?: ""
@@ -130,6 +131,12 @@ object Prefs {
         sp(c).getInt(KEY_WIN_END, DEFAULT_WINDOW_END_MINUTE)
 
     fun isWindowSynced(c: Context): Boolean = sp(c).getBoolean(KEY_WIN_SYNCED, false)
+
+    /** 运行日志是否折叠（记忆用户选择） */
+    fun setLogCollapsed(c: Context, collapsed: Boolean) =
+        sp(c).edit().putBoolean(KEY_LOG_COLLAPSED, collapsed).apply()
+
+    fun isLogCollapsed(c: Context): Boolean = sp(c).getBoolean(KEY_LOG_COLLAPSED, false)
 
     fun resetWindow(c: Context) {
         sp(c).edit().remove(KEY_WIN_START).remove(KEY_WIN_END).remove(KEY_WIN_SYNCED).apply()

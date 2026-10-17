@@ -162,6 +162,8 @@ class MainActivity : AppCompatActivity() {
             refreshConsole()
         }
 
+        // [旧开关监听器已由圆形电源按钮取代，待审查后删除]
+        /*
         binding.switchService.setOnCheckedChangeListener { _, checked ->
             if (updatingSwitch) return@setOnCheckedChangeListener
             Prefs.setServiceEnabled(this, checked)
@@ -175,6 +177,18 @@ class MainActivity : AppCompatActivity() {
             }
             refreshStatus()
         }
+        */
+
+        // 圆形电源按钮：点击切换后台打卡服务
+        binding.powerToggle.setOnClickListener { toggleService() }
+
+        // 日志区折叠/展开（状态记忆）
+        binding.logHeader.setOnClickListener {
+            val collapsed = !Prefs.isLogCollapsed(this)
+            Prefs.setLogCollapsed(this, collapsed)
+            applyLogCollapsed(collapsed)
+        }
+        applyLogCollapsed(Prefs.isLogCollapsed(this))
 
         if (Build.VERSION.SDK_INT >= 33) {
             ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1)
@@ -190,57 +204,103 @@ class MainActivity : AppCompatActivity() {
         refreshStatus()
     }
 
-    /** 刷新所有状态展示（含状态点颜色渐变） */
+    /** 刷新所有状态展示 */
     private fun refreshStatus() {
         val logged = Prefs.getCookie(this).isNotBlank()
         val enabled = Prefs.isServiceEnabled(this)
 
-        val (title, dotRes, sub) = when {
-            !enabled -> Triple(getString(R.string.service_off_title), R.color.dot_off, getString(R.string.service_off_sub))
-            !logged -> Triple(getString(R.string.service_wait_title), R.color.dot_warn, getString(R.string.service_wait_sub))
-            else -> Triple(getString(R.string.service_on_title), R.color.dot_on, getString(R.string.service_on_sub))
+        val (title, sub) = when {
+            !enabled -> getString(R.string.service_off_title) to getString(R.string.service_off_sub)
+            !logged -> getString(R.string.service_wait_title) to getString(R.string.service_wait_sub)
+            else -> getString(R.string.service_on_title) to getString(R.string.service_on_sub)
         }
         binding.tvServiceTitle.text = title
-        animateDot(dotRes)
+        // [状态点已由圆形电源按钮取代，待审查后删除]
+        // animateDot(dotRes)
         binding.tvServiceSub.text = sub
         binding.tvNext.text = getString(R.string.next_prefix) + AlarmScheduler.nextTriggerTimeText(this)
 
+        // 账号状态卡片
         binding.tvAccount.text = getString(if (logged) R.string.logged_in else R.string.not_logged)
-        binding.tvLast.text = Prefs.getLastResult(this) ?: getString(R.string.no_record)
+
+        // 登录按钮随登录态变化：未登录=主色实心引导；已登录=次要样式「重新登录」
+        if (logged) {
+            binding.btnLogin.setText(R.string.btn_relogin_text)
+            binding.btnLogin.setBackgroundResource(R.drawable.bg_btn_secondary)
+            binding.btnLogin.setTextColor(ContextCompat.getColor(this, R.color.text_primary))
+        } else {
+            binding.btnLogin.setText(R.string.btn_login_text)
+            binding.btnLogin.setBackgroundResource(R.drawable.bg_btn_primary)
+            binding.btnLogin.setTextColor(ContextCompat.getColor(this, R.color.accent_text))
+        }
+
+        // 「最近打卡」按结果着色：成功绿 / 失败橙 / 其余默认
+        val lastResult = Prefs.getLastResult(this)
+        binding.tvLast.text = lastResult ?: getString(R.string.no_record)
+        val lastColor = when {
+            lastResult == null -> R.color.text_secondary
+            lastResult.contains("成功") || lastResult.contains("已打卡") || lastResult.contains("已完成") -> R.color.dot_on
+            lastResult.contains("失败") || lastResult.contains("异常") || lastResult.contains("未登录") -> R.color.dot_warn
+            else -> R.color.text_primary
+        }
+        binding.tvLast.setTextColor(ContextCompat.getColor(this, lastColor))
+
         binding.btnTheme.text = getString(if (Prefs.isDarkTheme(this)) R.string.theme_dark else R.string.theme_light)
         binding.tvDrawerWindow.text = Prefs.windowLabel(this)
         // [脚本定位卡片已移入侧边栏，待审查后删除]
         // refreshLocationCard()
 
-        updatingSwitch = true
-        binding.switchService.isChecked = enabled
-        updatingSwitch = false
-
-        // [深色开关已移回右上角胶囊，待审查后删除]
-        // updatingDarkSwitch = true
-        // binding.switchDark.isChecked = Prefs.isDarkTheme(this)
-        // updatingDarkSwitch = false
+        // 圆形电源按钮同步服务状态（带颜色渐变动画）
+        binding.powerToggle.isChecked = enabled
 
         refreshConsole()
     }
 
-    /** 状态点颜色渐变动画，让状态变化一目了然 */
-    private fun animateDot(colorRes: Int) {
-        val target = ContextCompat.getColor(this, colorRes)
-        val from = if (dotColor == 0) target else dotColor
-        ValueAnimator.ofObject(ArgbEvaluator(), from, target).apply {
-            duration = 300
-            addUpdateListener { anim ->
-                val c = anim.animatedValue as Int
-                binding.dotStatus.background = GradientDrawable().apply {
-                    shape = GradientDrawable.OVAL
-                    setColor(c)
-                }
-            }
-            start()
+    /** 切换后台打卡服务（圆形电源按钮） */
+    private fun toggleService() {
+        val newState = !Prefs.isServiceEnabled(this)
+        Prefs.setServiceEnabled(this, newState)
+        if (newState) {
+            AlarmScheduler.ensureScheduled(this)
+            val hint = if (Prefs.getCookie(this).isBlank()) "（登录后自动生效）" else ""
+            LogStore.append(this, "[系统] 后台打卡服务已启动$hint")
+        } else {
+            AlarmScheduler.cancel(this)
+            LogStore.append(this, "[系统] 后台打卡服务已停止")
         }
-        dotColor = target
+        refreshStatus()
     }
+
+    /** 应用日志折叠状态（折叠时用底部占位保持版本行位置） */
+    private fun applyLogCollapsed(collapsed: Boolean) {
+        binding.logCard.visibility = if (collapsed) View.GONE else View.VISIBLE
+        binding.spacerBottom.visibility = if (collapsed) View.VISIBLE else View.GONE
+        binding.tvLogToggle.text = getString(
+            if (collapsed) R.string.log_expand_arrow else R.string.log_collapse_arrow
+        )
+        binding.logHeader.contentDescription = getString(
+            if (collapsed) R.string.log_expand else R.string.log_collapse
+        )
+    }
+
+    // [状态点已由圆形电源按钮取代，该方法保留备查，待审查后删除]
+    // /** 状态点颜色渐变动画，让状态变化一目了然 */
+    // private fun animateDot(colorRes: Int) {
+    //     val target = ContextCompat.getColor(this, colorRes)
+    //     val from = if (dotColor == 0) target else dotColor
+    //     ValueAnimator.ofObject(ArgbEvaluator(), from, target).apply {
+    //         duration = 300
+    //         addUpdateListener { anim ->
+    //             val c = anim.animatedValue as Int
+    //             binding.dotStatus.background = GradientDrawable().apply {
+    //                 shape = GradientDrawable.OVAL
+    //                 setColor(c)
+    //             }
+    //         }
+    //         start()
+    //     }
+    //     dotColor = target
+    // }
 
     /** 把日志渲染到日志卡片并滚到底部 */
     private fun refreshConsole() {
