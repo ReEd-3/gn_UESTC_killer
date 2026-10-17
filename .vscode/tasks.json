@@ -15,9 +15,30 @@
             "problemMatcher": []
         },
         {
+            "label": "Android: 编译 Release APK",
+            "type": "shell",
+            "command": ".\\gradlew.bat assembleRelease",
+            "options": {
+                "cwd": "${workspaceFolder}\\android"
+            },
+            "group": {
+                "kind": "build"
+            },
+            "problemMatcher": []
+        },
+        {
             "label": "Android: 编译并安装到手机",
             "type": "shell",
             "command": ".\\gradlew.bat installDebug",
+            "options": {
+                "cwd": "${workspaceFolder}\\android"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Android: 编译并安装 Release 到手机",
+            "type": "shell",
+            "command": ".\\gradlew.bat installRelease",
             "options": {
                 "cwd": "${workspaceFolder}\\android"
             },

@@ -11,8 +11,22 @@
         {
             "type": "node-terminal",
             "request": "launch",
+            "name": "Android: 编译 Release APK",
+            "command": ".\\gradlew.bat assembleRelease",
+            "cwd": "${workspaceFolder}\\android"
+        },
+        {
+            "type": "node-terminal",
+            "request": "launch",
             "name": "Android: 编译并安装到手机",
             "command": ".\\gradlew.bat installDebug",
+            "cwd": "${workspaceFolder}\\android"
+        },
+        {
+            "type": "node-terminal",
+            "request": "launch",
+            "name": "Android: 编译并安装 Release 到手机",
+            "command": ".\\gradlew.bat installRelease",
             "cwd": "${workspaceFolder}\\android"
         }
     ]
