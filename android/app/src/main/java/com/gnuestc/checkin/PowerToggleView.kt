@@ -90,7 +90,7 @@ class PowerToggleView @JvmOverloads constructor(
     private fun startSpin() {
         if (!isAttachedToWindow || spinAnimator != null) return
         spinAnimator = ValueAnimator.ofFloat(spinDegrees, spinDegrees + 360f).apply {
-            duration = 20000
+            duration = 60000
             repeatCount = ValueAnimator.INFINITE
             interpolator = LinearInterpolator()
             addUpdateListener {
@@ -170,13 +170,13 @@ class PowerToggleView @JvmOverloads constructor(
         // 外环梯形光芒：外宽内窄，24 个（开启时整体缓慢旋转）
         spikePaint.style = Paint.Style.FILL
         spikePaint.color = color
-        val count = 24
+        val count = 56
         val cxD = cx.toDouble()
         val cyD = cy.toDouble()
         val innerR = (maxR * 0.60f).toDouble()
-        val outerR = (maxR * 0.92f).toDouble()
-        val innerHalf = Math.toRadians(3.4)
-        val outerHalf = Math.toRadians(5.6)
+        val outerR = (maxR * 0.78f).toDouble()
+        val innerHalf = Math.toRadians(1.0)
+        val outerHalf = Math.toRadians(1.2)
         val baseRotation = Math.toRadians(-90.0 + spinDegrees.toDouble()) +
             animProgress * Math.toRadians(10.0)
         for (i in 0 until count) {
