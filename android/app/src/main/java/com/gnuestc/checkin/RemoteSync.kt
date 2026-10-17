@@ -41,9 +41,20 @@ object RemoteSync {
      * 时间窗口：GET /checkin-schedule/effective
      * data 字段：businessDate + studentCheckinStartOffsetMinute / studentCheckinEndOffsetMinute（当天 00:00 起分钟偏移）
      * 打卡触发时间 = 窗口开始 + 5 分钟（与默认 21:05 的节奏一致），重试截止 = 窗口结束
-     * @return 是否成功保存
+     *
+     * [手动设置 2026-10-18] 拆分为两个入口：
+     *  - refreshSchedule：后台自动同步（登录 / 打卡时），尊重「手动设置」锁定，不覆盖
+     *  - syncScheduleNow：用户在菜单中显式「从服务端同步」，覆盖手动值（解除锁定）
      */
-    fun refreshSchedule(context: Context, api: CheckinApi): Boolean {
+    fun refreshSchedule(context: Context, api: CheckinApi): Boolean =
+        applySchedule(context, api, force = false)
+
+    fun syncScheduleNow(context: Context, api: CheckinApi): Boolean =
+        applySchedule(context, api, force = true)
+
+    private fun applySchedule(context: Context, api: CheckinApi, force: Boolean): Boolean {
+        // [手动设置 2026-10-18] 手动锁定中且非显式同步 → 跳过，保护用户设置
+        if (!force && Prefs.isWindowManual(context)) return false
         var saved = false
         runCatching {
             val resp = api.getEffectiveSchedule()
@@ -52,7 +63,8 @@ object RemoteSync {
                 val start = data.optInt("studentCheckinStartOffsetMinute", -1)
                 val end = data.optInt("studentCheckinEndOffsetMinute", -1)
                 if (start in 0 until end && end <= 24 * 60 && start + 5 < end) {
-                    Prefs.setWindow(context, start + 5, end, synced = true)
+                    // [手动设置 2026-10-18] 原实现：Prefs.setWindow(context, start + 5, end, synced = true)
+                    Prefs.setWindowServer(context, start + 5, end)
                     saved = true
                 }
             }

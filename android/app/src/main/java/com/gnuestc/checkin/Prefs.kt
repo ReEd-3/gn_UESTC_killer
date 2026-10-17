@@ -26,6 +26,7 @@ object Prefs {
     private const val KEY_WIN_START = "win_start_minute"
     private const val KEY_WIN_END = "win_end_minute"
     private const val KEY_WIN_SYNCED = "win_synced"
+    private const val KEY_WIN_SOURCE = "win_source"
     private const val KEY_LOG_COLLAPSED = "log_collapsed"
     private const val KEY_CHECKED_DATE = "checked_date"
     private const val KEY_FIRST_RUN_GUIDE = "first_run_guide_shown"
@@ -118,12 +119,33 @@ object Prefs {
 
     fun isDefaultPointKnown(c: Context): Boolean = sp(c).contains(KEY_DEF_LAT)
 
-    /** 打卡时间窗口（当天 00:00 起的分钟数）：默认 21:05–23:30，登录/打卡时自动同步服务端覆盖 */
-    fun setWindow(c: Context, startMinute: Int, endMinute: Int, synced: Boolean) {
+    // [手动设置 2026-10-18] 窗口来源：manual 手动锁定 / server 服务端同步 / default 内置默认
+    // 原实现保留备查：
+    // fun setWindow(c: Context, startMinute: Int, endMinute: Int, synced: Boolean) {
+    //     sp(c).edit()
+    //         .putInt(KEY_WIN_START, startMinute)
+    //         .putInt(KEY_WIN_END, endMinute)
+    //         .putBoolean(KEY_WIN_SYNCED, synced)
+    //         .apply()
+    // }
+
+    /** 手动设置窗口（锁定：后台自动同步不再覆盖） */
+    fun setWindowManual(c: Context, startMinute: Int, endMinute: Int) {
         sp(c).edit()
             .putInt(KEY_WIN_START, startMinute)
             .putInt(KEY_WIN_END, endMinute)
-            .putBoolean(KEY_WIN_SYNCED, synced)
+            .putString(KEY_WIN_SOURCE, WINDOW_SOURCE_MANUAL)
+            .putBoolean(KEY_WIN_SYNCED, false) // 兼容旧字段
+            .apply()
+    }
+
+    /** 服务端同步窗口（由调用方保证：除用户显式同步外，不覆盖手动值） */
+    fun setWindowServer(c: Context, startMinute: Int, endMinute: Int) {
+        sp(c).edit()
+            .putInt(KEY_WIN_START, startMinute)
+            .putInt(KEY_WIN_END, endMinute)
+            .putString(KEY_WIN_SOURCE, WINDOW_SOURCE_SERVER)
+            .putBoolean(KEY_WIN_SYNCED, true) // 兼容旧字段
             .apply()
     }
 
@@ -133,7 +155,17 @@ object Prefs {
     fun getWindowEndMinute(c: Context): Int =
         sp(c).getInt(KEY_WIN_END, DEFAULT_WINDOW_END_MINUTE)
 
-    fun isWindowSynced(c: Context): Boolean = sp(c).getBoolean(KEY_WIN_SYNCED, false)
+    /** 窗口来源；兼容旧数据（win_synced=true 视为服务端同步） */
+    fun getWindowSource(c: Context): String {
+        val sp = sp(c)
+        sp.getString(KEY_WIN_SOURCE, null)?.let { return it }
+        return if (sp.getBoolean(KEY_WIN_SYNCED, false)) WINDOW_SOURCE_SERVER else WINDOW_SOURCE_DEFAULT
+    }
+
+    fun isWindowManual(c: Context): Boolean = getWindowSource(c) == WINDOW_SOURCE_MANUAL
+
+    // [手动设置 2026-10-18] 原实现保留备查：sp(c).getBoolean(KEY_WIN_SYNCED, false)
+    fun isWindowSynced(c: Context): Boolean = getWindowSource(c) == WINDOW_SOURCE_SERVER
 
     /** 运行日志是否折叠（记忆用户选择） */
     fun setLogCollapsed(c: Context, collapsed: Boolean) =
@@ -158,7 +190,11 @@ object Prefs {
     fun isFirstRunGuideShown(c: Context): Boolean = sp(c).getBoolean(KEY_FIRST_RUN_GUIDE, false)
 
     fun resetWindow(c: Context) {
-        sp(c).edit().remove(KEY_WIN_START).remove(KEY_WIN_END).remove(KEY_WIN_SYNCED).apply()
+        // [手动设置 2026-10-18] 一并清除来源标记（原实现仅清 win_start/win_end/win_synced）
+        sp(c).edit()
+            .remove(KEY_WIN_START).remove(KEY_WIN_END)
+            .remove(KEY_WIN_SOURCE).remove(KEY_WIN_SYNCED)
+            .apply()
     }
 
     /** 形如 "21:05–23:30" 的窗口展示文案 */
@@ -171,6 +207,11 @@ object Prefs {
     /** 默认窗口：21:05 触发 / 23:30 截止 */
     const val DEFAULT_WINDOW_START_MINUTE = 21 * 60 + 5
     const val DEFAULT_WINDOW_END_MINUTE = 23 * 60 + 30
+
+    /** 窗口来源标识（[手动设置 2026-10-18]） */
+    const val WINDOW_SOURCE_MANUAL = "manual"
+    const val WINDOW_SOURCE_SERVER = "server"
+    const val WINDOW_SOURCE_DEFAULT = "default"
 
     private fun sp(c: Context) = c.getSharedPreferences(NAME, Context.MODE_PRIVATE)
 }

@@ -5,6 +5,7 @@ import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
 import android.animation.ArgbEvaluator
 import android.animation.ValueAnimator
+import android.content.DialogInterface
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.drawable.GradientDrawable
@@ -34,6 +35,8 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.google.android.material.timepicker.MaterialTimePicker
+import com.google.android.material.timepicker.TimeFormat
 import com.gnuestc.checkin.databinding.ActivityMainBinding
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -267,7 +270,14 @@ class MainActivity : AppCompatActivity() {
         binding.tvLast.setTextColor(ContextCompat.getColor(this, lastColor))
 
         binding.btnTheme.text = getString(if (Prefs.isDarkTheme(this)) R.string.theme_dark else R.string.theme_light)
-        binding.tvDrawerWindow.text = Prefs.windowLabel(this)
+        // [手动设置 2026-10-18] 抽屉里同时显示窗口来源（手动 / 服务端 / 默认）
+        // 原实现：binding.tvDrawerWindow.text = Prefs.windowLabel(this)
+        val winSource = when {
+            Prefs.isWindowManual(this) -> getString(R.string.window_source_manual)
+            Prefs.isWindowSynced(this) -> getString(R.string.window_source_remote)
+            else -> getString(R.string.window_source_default)
+        }
+        binding.tvDrawerWindow.text = Prefs.windowLabel(this) + " · " + winSource
         // [脚本定位卡片已移入侧边栏，待审查后删除]
         // refreshLocationCard()
 
@@ -510,23 +520,118 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    /** 调整时间窗口：查看当前窗口 / 立即同步 / 重置默认 */
+    /**
+     * 调整时间窗口（菜单式）：手动设置 / 从服务端同步 / 重置默认
+     * [手动设置 2026-10-18] 由原三按钮弹窗改为列表菜单，容纳三个操作
+     */
     private fun showWindowMenu() {
-        val source = getString(
-            if (Prefs.isWindowSynced(this)) R.string.window_source_remote else R.string.window_source_default
+        val source = when {
+            Prefs.isWindowManual(this) -> getString(R.string.window_source_manual)
+            Prefs.isWindowSynced(this) -> getString(R.string.window_source_remote)
+            else -> getString(R.string.window_source_default)
+        }
+        val items = arrayOf(
+            getString(R.string.window_item_manual),
+            getString(R.string.window_item_sync),
+            getString(R.string.window_item_reset)
         )
         MaterialAlertDialogBuilder(this)
-            .setTitle(R.string.window_title)
-            .setMessage(getString(R.string.window_msg, Prefs.windowLabel(this), source))
-            .setPositiveButton(R.string.window_sync_btn) { _, _ -> syncWindowNow() }
-            .setNeutralButton(R.string.window_reset_btn) { _, _ ->
-                Prefs.resetWindow(this)
-                LogStore.append(this, getString(R.string.window_reset_done))
-                AlarmScheduler.ensureScheduled(this)
-                refreshStatus()
+            .setTitle(getString(R.string.window_title_state, Prefs.windowLabel(this), source))
+            .setItems(items) { _, which ->
+                when (which) {
+                    0 -> showWindowManualDialog()
+                    1 -> syncWindowNow()
+                    2 -> {
+                        Prefs.resetWindow(this)
+                        LogStore.append(this, getString(R.string.window_reset_done))
+                        AlarmScheduler.ensureScheduled(this)
+                        refreshStatus()
+                    }
+                }
             }
-            .setNegativeButton(R.string.window_close, null)
             .show()
+    }
+
+    // [手动设置 2026-10-18] 原弹窗实现保留备查：
+    // private fun showWindowMenu() {
+    //     val source = getString(
+    //         if (Prefs.isWindowSynced(this)) R.string.window_source_remote else R.string.window_source_default
+    //     )
+    //     MaterialAlertDialogBuilder(this)
+    //         .setTitle(R.string.window_title)
+    //         .setMessage(getString(R.string.window_msg, Prefs.windowLabel(this), source))
+    //         .setPositiveButton(R.string.window_sync_btn) { _, _ -> syncWindowNow() }
+    //         .setNeutralButton(R.string.window_reset_btn) { _, _ ->
+    //             Prefs.resetWindow(this)
+    //             LogStore.append(this, getString(R.string.window_reset_done))
+    //             AlarmScheduler.ensureScheduled(this)
+    //             refreshStatus()
+    //         }
+    //         .setNegativeButton(R.string.window_close, null)
+    //         .show()
+    // }
+
+    /**
+     * 手动设置打卡窗口首尾时间（方案 A）：
+     * 两行（开始/结束）点击 → 系统时间选择器（Material 时钟样式，24 小时制）
+     * [手动设置 2026-10-18] 保存后写入「手动锁定」，后台自动同步不再覆盖
+     */
+    private fun showWindowManualDialog() {
+        val view = layoutInflater.inflate(R.layout.dialog_window_manual, null)
+        val tvStart = view.findViewById<TextView>(R.id.tvWindowStart)
+        val tvEnd = view.findViewById<TextView>(R.id.tvWindowEnd)
+        var startMin = Prefs.getWindowStartMinute(this)
+        var endMin = Prefs.getWindowEndMinute(this)
+
+        fun render() {
+            tvStart.text = String.format(Locale.US, "%02d:%02d", startMin / 60, startMin % 60)
+            tvEnd.text = String.format(Locale.US, "%02d:%02d", endMin / 60, endMin % 60)
+        }
+        render()
+
+        fun pick(current: Int, titleRes: Int, onPicked: (Int) -> Unit) {
+            val picker = MaterialTimePicker.Builder()
+                .setTimeFormat(TimeFormat.CLOCK_24H)
+                .setHour(current / 60)
+                .setMinute(current % 60)
+                .setTitleText(titleRes)
+                .build()
+            picker.addOnPositiveButtonClickListener {
+                onPicked(picker.hour * 60 + picker.minute)
+            }
+            picker.show(supportFragmentManager, "window_time_picker")
+        }
+
+        view.findViewById<View>(R.id.rowWindowStart).setOnClickListener {
+            pick(startMin, R.string.window_manual_pick_start) { startMin = it; render() }
+        }
+        view.findViewById<View>(R.id.rowWindowEnd).setOnClickListener {
+            pick(endMin, R.string.window_manual_pick_end) { endMin = it; render() }
+        }
+
+        val dialog = MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.window_manual_title)
+            .setView(view)
+            .setPositiveButton(R.string.manual_save, null)
+            .setNegativeButton(R.string.map_cancel, null)
+            .create()
+        // 校验不通过时保持弹窗打开，便于直接修改
+        dialog.setOnShowListener {
+            dialog.getButton(DialogInterface.BUTTON_POSITIVE).setOnClickListener {
+                if (endMin - startMin < 5) {
+                    Toast.makeText(this, R.string.window_manual_invalid, Toast.LENGTH_SHORT).show()
+                } else {
+                    Prefs.setWindowManual(this, startMin, endMin)
+                    val label = Prefs.windowLabel(this)
+                    LogStore.append(this, getString(R.string.window_manual_done, label))
+                    AlarmScheduler.ensureScheduled(this)
+                    refreshStatus()
+                    Toast.makeText(this, getString(R.string.window_manual_done, label), Toast.LENGTH_SHORT).show()
+                    dialog.dismiss()
+                }
+            }
+        }
+        dialog.show()
     }
 
     /** 立即从服务端同步时间窗口（需要已登录） */
@@ -539,7 +644,9 @@ class MainActivity : AppCompatActivity() {
         binding.progressBusy.visibility = View.VISIBLE
         lifecycleScope.launch {
             val ok = withContext(Dispatchers.IO) {
-                RemoteSync.refreshSchedule(this@MainActivity, CheckinApi(cookie))
+                // [手动设置 2026-10-18] 显式同步：覆盖手动值并解除锁定
+                // 原实现：RemoteSync.refreshSchedule(this@MainActivity, CheckinApi(cookie))
+                RemoteSync.syncScheduleNow(this@MainActivity, CheckinApi(cookie))
             }
             binding.progressBusy.visibility = View.GONE
             val msg = if (ok) {
