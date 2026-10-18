@@ -209,6 +209,8 @@ class LoginActivity : AppCompatActivity() {
                 }
                 // 立即安排：未到点排窗口开始时间；窗口内则 1 分钟后尽快补打
                 AlarmScheduler.ensureScheduled(this@LoginActivity)
+                // [新增 2026-10-18] 登录成功后按开关状态启动常驻服务
+                KeepAliveService.syncKeepAlive(this@LoginActivity)
                 Toast.makeText(
                     this@LoginActivity,
                     getString(R.string.login_success, verify),

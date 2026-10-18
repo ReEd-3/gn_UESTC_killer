@@ -219,6 +219,8 @@ class MainActivity : AppCompatActivity() {
 
         // 每次打开 App 都确保定时已安排（被系统清理/强停后可自动恢复；窗口内打开会尽快补打）
         AlarmScheduler.ensureScheduled(this)
+        // [新增 2026-10-18] 按开关状态同步常驻服务（登录后才真正启动）
+        KeepAliveService.syncKeepAlive(this)
         refreshStatus()
     }
 
@@ -287,6 +289,9 @@ class MainActivity : AppCompatActivity() {
         // 圆形电源按钮同步服务状态（带颜色渐变动画）
         binding.powerToggle.isChecked = enabled
 
+        // [新增 2026-10-18] 刷新常驻通知里的"下次打卡"文案
+        KeepAliveService.refresh(this)
+
         refreshConsole()
     }
 
@@ -302,6 +307,8 @@ class MainActivity : AppCompatActivity() {
             AlarmScheduler.cancel(this)
             LogStore.append(this, "[系统] 后台打卡服务已停止")
         }
+        // [新增 2026-10-18] 常驻服务跟随开关
+        KeepAliveService.syncKeepAlive(this)
         refreshStatus()
     }
 

@@ -9,6 +9,8 @@
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
 
     <application
         android:allowBackup="false"
@@ -36,6 +38,16 @@
         <activity
             android:name=".MapPickActivity"
             android:exported="false" />
+
+        <!-- [新增 2026-10-18] 常驻前台服务：低优先级常驻通知，降低被系统静默回收的概率 -->
+        <service
+            android:name=".KeepAliveService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="keep check-in scheduled task reliable" />
+        </service>
 
         <!-- 闹钟触发的打卡执行器，仅通过应用内 PendingIntent 调用 -->
         <receiver
