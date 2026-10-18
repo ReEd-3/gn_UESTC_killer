@@ -23,6 +23,8 @@ object EnginePrefs {
     private const val KEY_BATTERY_PROMPT_DONE = "battery_prompt_done"
     // [v11] 电池引导阶梯位置
     private const val KEY_BATTERY_PROMPT_STAGE = "battery_prompt_stage"
+    // [v14] 测试闹钟轮换 requestCode
+    private const val KEY_TEST_ALARM_RC = "test_alarm_rc"
 
     /** 打卡窗口默认值与主应用一致（21:05–23:30） */
     const val DEFAULT_WIN_START = 1265
@@ -93,4 +95,11 @@ object EnginePrefs {
         sp(c).edit().putInt(KEY_BATTERY_PROMPT_STAGE, v).apply()
 
     fun getBatteryPromptStage(c: Context): Int = sp(c).getInt(KEY_BATTERY_PROMPT_STAGE, 0)
+
+    // ── [v14] 测试闹钟轮换 requestCode ─────────────────────────
+
+    /** 上一次测试闹钟的 requestCode（每次换新，避免继承旧闹钟被系统推迟的状态） */
+    fun getTestAlarmRc(c: Context): Int = sp(c).getInt(KEY_TEST_ALARM_RC, 0)
+
+    fun setTestAlarmRc(c: Context, v: Int) = sp(c).edit().putInt(KEY_TEST_ALARM_RC, v).apply()
 }

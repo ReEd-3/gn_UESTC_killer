@@ -15,9 +15,9 @@ android {
         applicationId = "com.gnuestc.checkin.engine"
         minSdk = 26
         targetSdk = 35
-        // [双包 2026-10-19] v13：引擎闹钟升级为 setAlarmClock 优先（抗厂商闹钟调整）；心跳到点后继续跳动
-        versionCode = 13
-        versionName = "0.13"
+        // [双包 2026-10-19] v14：测试闹钟轮换 PendingIntent（不继承旧闹钟被系统推迟的状态）
+        versionCode = 14
+        versionName = "0.14"
     }
 
     buildTypes {

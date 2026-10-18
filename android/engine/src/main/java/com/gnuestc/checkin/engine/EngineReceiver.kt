@@ -100,9 +100,23 @@ class EngineReceiver : BroadcastReceiver() {
     /** 安排测试闹钟；@return 是否使用了"精确/闹钟级"（false = 已降级为可能延迟的兼容模式） */
     private fun scheduleAlarm(context: Context, triggerAtMillis: Long): Boolean {
         val am = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+        val intent = Intent(context, EngineAlarmReceiver::class.java)
+        // [v14] 每次换新 requestCode：避免复用旧 PendingIntent 时，
+        // 继承系统"闹钟调整"给上一次闹钟留下的推迟状态
+        val prevRc = EnginePrefs.getTestAlarmRc(context)
+        val rc = (prevRc + 1) % 1000
+        EnginePrefs.setTestAlarmRc(context, rc)
+        runCatching {
+            PendingIntent.getBroadcast(
+                context, prevRc, intent,
+                PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE
+            )?.let { old ->
+                am.cancel(old)
+                old.cancel()
+            }
+        }
         val pi = PendingIntent.getBroadcast(
-            context, 0,
-            Intent(context, EngineAlarmReceiver::class.java),
+            context, rc, intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
         // [v13] 优先"闹钟级"（最不易被系统/厂商省电接管），失败再退精确/普通
