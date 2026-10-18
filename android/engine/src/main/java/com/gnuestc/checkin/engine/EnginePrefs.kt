@@ -21,6 +21,8 @@ object EnginePrefs {
     private const val KEY_LAST_FAIL_SIG = "last_fail_sig"
     // [v10] 电池引导状态
     private const val KEY_BATTERY_PROMPT_DONE = "battery_prompt_done"
+    // [v11] 电池引导阶梯位置
+    private const val KEY_BATTERY_PROMPT_STAGE = "battery_prompt_stage"
 
     /** 打卡窗口默认值与主应用一致（21:05–23:30） */
     const val DEFAULT_WIN_START = 1265
@@ -78,11 +80,17 @@ object EnginePrefs {
 
     fun getLastFailSig(c: Context): String = sp(c).getString(KEY_LAST_FAIL_SIG, "").orEmpty()
 
-    // ── [v10] 电池引导状态 ─────────────────────────────────────
+    // ── [v10/v11] 电池引导状态 ─────────────────────────────────
 
     /** 是否已经引导过"后台运行"设置（引导过一次就不再反复打扰；卸载重装自然重置） */
     fun setBatteryPromptDone(c: Context, v: Boolean) =
         sp(c).edit().putBoolean(KEY_BATTERY_PROMPT_DONE, v).apply()
 
     fun isBatteryPromptDone(c: Context): Boolean = sp(c).getBoolean(KEY_BATTERY_PROMPT_DONE, false)
+
+    /** [v11] 电池引导阶梯位置（0=请求豁免 1=优化列表 2=应用详情） */
+    fun setBatteryPromptStage(c: Context, v: Int) =
+        sp(c).edit().putInt(KEY_BATTERY_PROMPT_STAGE, v).apply()
+
+    fun getBatteryPromptStage(c: Context): Int = sp(c).getInt(KEY_BATTERY_PROMPT_STAGE, 0)
 }

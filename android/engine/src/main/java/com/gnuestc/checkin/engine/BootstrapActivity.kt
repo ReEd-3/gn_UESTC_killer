@@ -97,9 +97,9 @@ class BootstrapActivity : Activity() {
     }
 
     /**
-     * [v6/v10] 电池优化自检：未豁免时引导一次（重装组件后系统会重置该设置）。
-     * ColorOS 说明：系统"一键允许"页只能改系统名单；OPPO 自己的冻结机制还看"应用耗电管理"，
-     * 因此额外提供「打开耗电设置」直达该页；引导过一次后不再反复打扰（重装数据自然重置）。
+     * [v6/v11] 电池优化自检（厂商无关）：未豁免时按"标准意图阶梯"分级引导。
+     * 不假设任何厂商：每一级都用系统标准意图（由系统自行解析/路由到它自家的页面）；
+     * 每次激活先用标准 API 复检是否真的生效，未生效则进入下一级（最多 3 级，不会无限骚扰）。
      */
     private fun maybeCheckBattery() {
         val pm = getSystemService(POWER_SERVICE) as PowerManager
@@ -107,28 +107,31 @@ class BootstrapActivity : Activity() {
             finish()
             return
         }
+        val stage = EnginePrefs.getBatteryPromptStage(this).coerceIn(0, 2)
+        val message = when (stage) {
+            0 -> "为保证熄屏后定时打卡不被系统冻结，请点「去允许」，并在接下来的系统界面中允许本应用。"
+            1 -> "刚才的允许似乎未生效。请点「去设置」，在打开的页面中允许本应用（不同系统叫法不同：不优化 / 允许后台运行 / 允许完全后台行为）。"
+            else -> "最后一招：请点「应用信息」，在该页面中找到本应用的「电池 / 耗电管理 / 后台运行」相关选项并允许。"
+        }
+        val actionText = when (stage) {
+            0 -> "去允许"
+            1 -> "去设置"
+            else -> "应用信息"
+        }
         android.app.AlertDialog.Builder(this)
             .setTitle("后台组件：请允许后台运行")
-            .setMessage(
-                "为保证熄屏后定时打卡不被系统冻结：\n" +
-                    "· 优先点「一键允许」，并在系统弹窗中点“允许”；\n" +
-                    "· 若系统仍限制（如 ColorOS），请点「打开耗电设置」，选择“允许完全后台行为”。"
-            )
-            .setPositiveButton("一键允许") { _, _ ->
-                EnginePrefs.setBatteryPromptDone(this, true)
-                runCatching {
-                    startActivity(
-                        Intent(
-                            Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
-                            Uri.parse("package:$packageName")
-                        )
-                    )
+            .setMessage(message)
+            .setPositiveButton(actionText) { _, _ ->
+                val launched = launchBatteryAssist(stage)
+                if (!launched) {
+                    android.widget.Toast.makeText(
+                        this,
+                        "未能打开系统设置，请手动在系统设置中允许本应用后台运行",
+                        android.widget.Toast.LENGTH_LONG
+                    ).show()
                 }
-                finish()
-            }
-            .setNeutralButton("打开耗电设置") { _, _ ->
-                EnginePrefs.setBatteryPromptDone(this, true)
-                openVendorPowerDetail()
+                EnginePrefs.setBatteryPromptStage(this, (stage + 1).coerceAtMost(2))
+                if (stage >= 2) EnginePrefs.setBatteryPromptDone(this, true)
                 finish()
             }
             .setNegativeButton("暂不") { _, _ -> finish() }
@@ -136,23 +139,23 @@ class BootstrapActivity : Activity() {
             .show()
     }
 
-    /** [v10] 打开厂商(OPPO/ColorOS)的「应用耗电管理」详情页；不可用时退回系统电池优化列表 */
-    private fun openVendorPowerDetail() {
-        val opened = runCatching {
-            startActivity(
-                Intent().apply {
-                    component = ComponentName(
-                        "com.oplus.battery",
-                        "com.oplus.powermanager.fuelgaue.PowerUsageModelActivity"
-                    )
-                    putExtra("pkg_name", packageName)
-                }
-            )
-        }.isSuccess
-        if (!opened) {
-            runCatching {
-                startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
-            }
+    /**
+     * [v11] 依次尝试系统标准入口（不含任何厂商名称），成功打开一个即返回：
+     * 标准意图由系统自行解析路由（例如某些系统会把它映射到自家的省电/耗电管理页面）。
+     */
+    private fun launchBatteryAssist(stage: Int): Boolean {
+        val pkg = Uri.parse("package:$packageName")
+        val request = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, pkg)
+        val settingsList = Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
+        val details = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, pkg)
+        val ordered = when (stage) {
+            0 -> listOf(request, settingsList, details)
+            1 -> listOf(settingsList, request, details)
+            else -> listOf(details, settingsList)
         }
+        for (intent in ordered) {
+            if (runCatching { startActivity(intent) }.isSuccess) return true
+        }
+        return false
     }
 }
