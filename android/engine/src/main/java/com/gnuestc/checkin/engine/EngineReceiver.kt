@@ -41,6 +41,18 @@ class EngineReceiver : BroadcastReceiver() {
                 val fmt = SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date(at))
                 notify(context, NOTIFY_SCHEDULED, "测试闹钟已安排", "将于 $fmt 触发 —— 可在此之前划掉主应用")
             }
+            // [双包 2026-10-18] 主应用同步常驻状态：开关 + 下次打卡时间
+            "sync" -> {
+                val enabled = intent.getBooleanExtra(EXTRA_ENABLED, false)
+                val nextText = intent.getStringExtra(EXTRA_NEXT_TEXT).orEmpty()
+                EnginePrefs.setKeepAliveEnabled(context, enabled)
+                EnginePrefs.setNextText(context, nextText)
+                if (enabled) {
+                    EngineKeepAliveService.start(context)
+                } else {
+                    EngineKeepAliveService.stop(context)
+                }
+            }
         }
     }
 
@@ -84,6 +96,8 @@ class EngineReceiver : BroadcastReceiver() {
     companion object {
         const val EXTRA_CMD = "cmd"
         const val EXTRA_MINUTES = "minutes"
+        const val EXTRA_ENABLED = "enabled"
+        const val EXTRA_NEXT_TEXT = "next_text"
         private const val CHANNEL_ID = "engine_status"
         private const val NOTIFY_PING = 3001
         private const val NOTIFY_SCHEDULED = 3002

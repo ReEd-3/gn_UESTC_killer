@@ -57,6 +57,8 @@ class MainActivity : AppCompatActivity() {
     private var lastCatchUpAt = 0L
     private var pendingGpsRequest = false
     private val reqLocationCode = 1001
+    // [双包 2026-10-18] 安装流程续接标记：先去授权"安装未知应用"，返回后自动继续安装
+    private var pendingUnknownSources = false
 
     /** 地图选点返回结果 */
     private val mapPicker =
@@ -224,11 +226,11 @@ class MainActivity : AppCompatActivity() {
 
         // 每次打开 App 都确保定时已安排（被系统清理/强停后可自动恢复；窗口内打开会尽快补打）
         AlarmScheduler.ensureScheduled(this)
-        // [新增 2026-10-18] 按开关状态同步常驻服务（登录后才真正启动）
-        KeepAliveService.syncKeepAlive(this)
         refreshStatus()
         // [双包 2026-10-18] 检测后台组件安装状态，必要时引导安装
         maybePromptEngineInstall()
+        // [双包 2026-10-18] 把服务开关与下次打卡时间同步给引擎（常驻定义在引擎侧）
+        syncEngineState()
     }
 
     override fun onResume() {
@@ -238,6 +240,8 @@ class MainActivity : AppCompatActivity() {
         maybeRunForegroundCatchUp()
         // [修复 2026-10-18] 本地"今日已完成"标记与服务器对账（清除误报残留）
         reconcileCheckedState()
+        // [双包 2026-10-18] 安装流程续接：授权返回后自动继续安装、安装完自动激活
+        resumeEngineInstallFlow()
     }
 
     /** 刷新所有状态展示 */
@@ -296,13 +300,10 @@ class MainActivity : AppCompatActivity() {
         // 圆形电源按钮同步服务状态（带颜色渐变动画）
         binding.powerToggle.isChecked = enabled
 
-        // [新增 2026-10-18] 刷新常驻通知里的"下次打卡"文案
-        KeepAliveService.refresh(this)
-
         refreshConsole()
     }
 
-    /** 切换后台打卡服务（圆形电源按钮） */
+    /** [双包 2026-10-18] 切换后台打卡服务（圆形电源按钮）：本地开关 + 同步给引擎 */
     private fun toggleService() {
         val newState = !Prefs.isServiceEnabled(this)
         Prefs.setServiceEnabled(this, newState)
@@ -314,9 +315,18 @@ class MainActivity : AppCompatActivity() {
             AlarmScheduler.cancel(this)
             LogStore.append(this, "[系统] 后台打卡服务已停止")
         }
-        // [新增 2026-10-18] 常驻服务跟随开关
-        KeepAliveService.syncKeepAlive(this)
+        // [双包 2026-10-18] 把开关状态同步给引擎（引擎侧负责常驻通知）
+        syncEngineState()
         refreshStatus()
+    }
+
+    /** [双包 2026-10-18] 同步服务开关与"下次打卡"文案给引擎 */
+    private fun syncEngineState() {
+        if (!EngineBridge.query(this).installed) return
+        EngineBridge.sendCommand(this, "sync") {
+            it.putExtra("enabled", Prefs.isServiceEnabled(this) && Prefs.getCookie(this).isNotBlank())
+            it.putExtra("next_text", AlarmScheduler.nextTriggerTimeText(this))
+        }
     }
 
     /** 应用日志折叠状态（animate=true 时抽屉式推拉动画，版本行保持固定底部） */
@@ -964,6 +974,7 @@ class MainActivity : AppCompatActivity() {
     /** 安装流程：先检查「安装未知应用」权限，再拉起系统安装器 */
     private fun installEngineFlow() {
         if (!EngineBridge.canInstall(this)) {
+            pendingUnknownSources = true // [双包 2026-10-18] 授权返回后自动继续安装
             Toast.makeText(this, R.string.engine_need_unknown_source, Toast.LENGTH_LONG).show()
             runCatching {
                 startActivity(
@@ -976,6 +987,29 @@ class MainActivity : AppCompatActivity() {
             LogStore.append(this, "[引擎] 已拉起后台组件安装（请在系统弹窗中确认）")
         } else {
             Toast.makeText(this, R.string.engine_install_failed, Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    /**
+     * [双包 2026-10-18] 安装流程续接（每次回到前台检查）：
+     *  1) 刚去授权"安装未知应用"且已授权 → 自动拉起安装器（不再需要用户再点一次菜单）
+     *  2) 引擎已安装但尚未激活过 → 拉起引导页（解除 stopped 状态 + 申请权限）
+     */
+    private fun resumeEngineInstallFlow() {
+        val info = EngineBridge.query(this)
+        if (pendingUnknownSources) {
+            pendingUnknownSources = false
+            if (EngineBridge.canInstall(this)) installEngineFlow()
+            return
+        }
+        if (!info.installed) return
+        // [双包 2026-10-18] 先同步状态再激活：确保引导页启动常驻服务时开关已就绪
+        syncEngineState()
+        if (Prefs.getEngineActivatedVersion(this) != info.installedVersionCode) {
+            EngineBridge.activateEngine(this)
+            Prefs.setEngineActivatedVersion(this, info.installedVersionCode)
+            LogStore.append(this, "[引擎] 后台组件已就绪（v${info.installedVersionCode}），已完成初始化")
+            Toast.makeText(this, R.string.engine_activated, Toast.LENGTH_SHORT).show()
         }
     }
 }

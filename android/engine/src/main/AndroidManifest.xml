@@ -4,6 +4,8 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
 
     <!-- 控制权限（签名级）：只有同一签名的主应用才能给引擎发指令 -->
     <permission
@@ -36,5 +38,16 @@
         <receiver
             android:name=".EngineAlarmReceiver"
             android:exported="false" />
+
+        <!-- [双包 2026-10-18] 引擎自己的常驻前台服务：
+             放在引擎里才有意义——主应用被划掉不影响它 -->
+        <service
+            android:name=".EngineKeepAliveService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="keep daily check-in scheduled task reliable" />
+        </service>
     </application>
 </manifest>

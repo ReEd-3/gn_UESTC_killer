@@ -30,6 +30,7 @@ object Prefs {
     private const val KEY_LOG_COLLAPSED = "log_collapsed"
     private const val KEY_CHECKED_DATE = "checked_date"
     private const val KEY_FIRST_RUN_GUIDE = "first_run_guide_shown"
+    private const val KEY_ENGINE_ACTIVATED = "engine_activated_version"
 
     // [加密改造 2026-10-17] 原明文实现保留备查：
     // fun getCookie(c: Context): String = sp(c).getString(KEY_COOKIE, "") ?: ""
@@ -191,6 +192,12 @@ object Prefs {
         sp(c).edit().putBoolean(KEY_FIRST_RUN_GUIDE, shown).apply()
 
     fun isFirstRunGuideShown(c: Context): Boolean = sp(c).getBoolean(KEY_FIRST_RUN_GUIDE, false)
+
+    /** [双包 2026-10-18] 已完成初始化的引擎版本号（-1 = 从未初始化；升级引擎后会重新触发） */
+    fun setEngineActivatedVersion(c: Context, version: Int) =
+        sp(c).edit().putInt(KEY_ENGINE_ACTIVATED, version).apply()
+
+    fun getEngineActivatedVersion(c: Context): Int = sp(c).getInt(KEY_ENGINE_ACTIVATED, -1)
 
     fun resetWindow(c: Context) {
         // [手动设置 2026-10-18] 一并清除来源标记（原实现仅清 win_start/win_end/win_synced）
