@@ -20,11 +20,20 @@ object AlarmScheduler {
 
     fun scheduleDaily(context: Context) = set(context, nextDailyTrigger(context))
 
-    /** 失败重试：还在窗口内则 5 分钟后重试，否则直接排到明天 */
+    /**
+     * 失败重试：仅在打卡窗口内安排 5 分钟后重试；未到窗口开始则等到窗口开始。
+     * [修复 2026-10-18] 原实现只判断窗口结束、不判断窗口开始：窗口外（如手动测试）失败后
+     * 会每 5 分钟持续尝试，且用户把窗口推迟也停不下来。
+     */
     fun scheduleRetry(context: Context) {
         val now = System.currentTimeMillis()
-        val windowEnd = todayAtMinute(Prefs.getWindowEndMinute(context))
-        val next = if (now + RETRY_INTERVAL_MS <= windowEnd) now + RETRY_INTERVAL_MS else nextDailyTrigger(context)
+        val start = todayAtMinute(Prefs.getWindowStartMinute(context))
+        val end = todayAtMinute(Prefs.getWindowEndMinute(context))
+        val next = when {
+            now < start -> start
+            now + RETRY_INTERVAL_MS <= end -> now + RETRY_INTERVAL_MS
+            else -> nextDailyTrigger(context)
+        }
         set(context, next)
     }
 
@@ -59,15 +68,21 @@ object AlarmScheduler {
         val start = todayAtMinute(Prefs.getWindowStartMinute(context))
         val end = todayAtMinute(Prefs.getWindowEndMinute(context))
         val next = when {
-            Prefs.isCheckedToday(context) -> nextDailyTrigger(context)
+            // [修复 2026-10-18] 今天已完成：直接排明天窗口开始（原实现用 nextDailyTrigger，
+            // 在窗口开始前会返回"今天"的开始时间，导致当天再被无意义唤醒一次）
+            Prefs.isCheckedToday(context) -> start + 24L * 60 * 60 * 1000
             now < start -> start
             now <= end -> now + 60_000L
-            else -> nextDailyTrigger(context)
+            else -> start + 24L * 60 * 60 * 1000
         }
         // [修复 2026-10-17] 不覆盖"更早的待触发闹钟"：此前每次打开应用都会把闹钟推后 1 分钟，
         // 导致"打开 → +1 分钟 → 再打开 → 再 +1 分钟"的循环，闹钟永远差一点没跑
-        val pending = Prefs.getNextTrigger(context)
-        if (pending > now && pending <= next) return
+        // [修复 2026-10-18] 保留条件补充"必须仍落在当前窗口内"：否则用户把窗口推迟后，
+        // 落在新窗口之外的旧闹钟（如重试链）不会被替换，仍会在窗口外不断尝试
+        if (!Prefs.isCheckedToday(context)) {
+            val pending = Prefs.getNextTrigger(context)
+            if (pending > now && pending <= next && pending >= start && pending <= end) return
+        }
         set(context, next)
     }
 

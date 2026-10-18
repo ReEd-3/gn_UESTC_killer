@@ -21,6 +21,13 @@ class CheckinReceiver : BroadcastReceiver() {
                     LogStore.append(appContext, "[系统] 服务已关闭，已跳过本次执行")
                     return@launch
                 }
+                // [修复 2026-10-18] 窗口守卫：用户调整窗口后，旧的待触发闹钟可能落在窗口外，
+                // 此时不做打卡尝试，按当前窗口重排即可（避免窗口外"不断尝试打卡"）
+                if (!AlarmScheduler.isInWindowNow(appContext)) {
+                    LogStore.append(appContext, "[系统] 当前不在打卡窗口内，跳过本次执行并重排")
+                    AlarmScheduler.ensureScheduled(appContext)
+                    return@launch
+                }
                 val result = CheckinRunner.run(appContext)
                 Notifier.show(appContext, result)
                 // [修复 2026-10-17] 先重排下一次闹钟，再做附加同步：即使进程随后被回收，
