@@ -118,12 +118,32 @@ object EngineBridge {
      * 旧 ACTION_VIEW 方式在部分国产 ROM 上会被文件管理器/应用商店接管，
      * 安装被取消或失败时没有任何回执（引擎停在旧版本且无从得知）。
      * 会话方式能通过 EngineInstallReceiver 拿到明确结果与失败原因。
+     * [诊断 2026-10-18] 全程写日志：待装文件版本/大小、会话异常原因、是否回退。
      */
     fun installOrUpdate(context: Context): Boolean {
-        val apk = extractBundledApk(context) ?: return false
-        val viaSession = runCatching { installViaSession(context, apk) }.getOrDefault(false)
-        if (viaSession) return true
+        // [诊断 2026-10-18] 安装前强制重新提取，排除缓存文件异常
+        runCatching { File(context.cacheDir, "apk/$ASSET_NAME").delete() }
+        val apk = extractBundledApk(context) ?: run {
+            LogStore.append(context, "[引擎] 安装中止：内嵌文件提取失败")
+            return false
+        }
+        val fileInfo = runCatching {
+            @Suppress("DEPRECATION")
+            val vc = context.packageManager.getPackageArchiveInfo(apk.absolutePath, 0)?.versionCode ?: -1
+            "v$vc · ${apk.length()}B"
+        }.getOrDefault("未知")
+        LogStore.append(context, "[引擎] 准备安装内嵌引擎：$fileInfo")
+        val viaSession = runCatching { installViaSession(context, apk) }
+            .onFailure { e ->
+                LogStore.append(context, "[引擎] 会话安装不可用：${e.javaClass.simpleName}: ${e.message}")
+            }
+            .getOrDefault(false)
+        if (viaSession) {
+            LogStore.append(context, "[引擎] 已提交安装会话，等待系统确认（结果稍后记录）")
+            return true
+        }
         // 会话方式不可用时回退旧的 ACTION_VIEW
+        LogStore.append(context, "[引擎] 回退到安装器方式（ACTION_VIEW，无结果回执）")
         return runCatching { installViaView(context, apk) }.getOrDefault(false)
     }
 
