@@ -63,6 +63,11 @@
             android:name=".CheckinReceiver"
             android:exported="false" />
 
+        <!-- [修复 2026-10-18] 引擎安装结果回执（PackageInstaller 会话），仅应用内 PendingIntent 可达 -->
+        <receiver
+            android:name=".EngineInstallReceiver"
+            android:exported="false" />
+
         <!-- 开机重建闹钟；BOOT_COMPLETED 是受保护广播，只有系统能发出 -->
         <receiver
             android:name=".BootReceiver"

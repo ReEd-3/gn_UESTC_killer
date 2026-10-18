@@ -1,7 +1,9 @@
 package com.gnuestc.checkin
 
+import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageInstaller
 import android.net.Uri
 import android.os.Build
 import androidx.core.content.FileProvider
@@ -87,8 +89,9 @@ object EngineBridge {
             // [修复 2026-10-18] 原实现仅按"主应用版本号"判断缓存是否过期：主应用版本号不变时，
             // 内嵌资源已更新也不会重新提取（导致一直是旧引擎）→ 改为对比资源大小，
             // 并保留版本号标记兜底
+            // [修复 2026-10-18] available() 对压缩资源可能返回不准；直接读取全部字节取真实大小
             val assetSize = runCatching {
-                context.assets.open(ASSET_NAME).use { it.available().toLong() }
+                context.assets.open(ASSET_NAME).use { input -> input.readBytes().size.toLong() }
             }.getOrDefault(-1L)
             val marker = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
                 .getInt(KEY_EXTRACT_MARKER, -1)
@@ -109,19 +112,56 @@ object EngineBridge {
         return context.packageManager.getPackageArchiveInfo(f.absolutePath, 0)?.versionCode
     }
 
-    /** 拉起系统安装器安装/更新引擎；返回是否成功发起 */
+    /**
+     * 安装/更新引擎；返回是否成功发起。
+     * [修复 2026-10-18] 优先走 PackageInstaller 会话安装：
+     * 旧 ACTION_VIEW 方式在部分国产 ROM 上会被文件管理器/应用商店接管，
+     * 安装被取消或失败时没有任何回执（引擎停在旧版本且无从得知）。
+     * 会话方式能通过 EngineInstallReceiver 拿到明确结果与失败原因。
+     */
     fun installOrUpdate(context: Context): Boolean {
         val apk = extractBundledApk(context) ?: return false
-        return runCatching {
-            val uri: Uri = FileProvider.getUriForFile(
-                context, "${context.packageName}.fileprovider", apk
-            )
-            val intent = Intent(Intent.ACTION_VIEW).apply {
-                setDataAndType(uri, "application/vnd.android.package-archive")
-                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
+        val viaSession = runCatching { installViaSession(context, apk) }.getOrDefault(false)
+        if (viaSession) return true
+        // 会话方式不可用时回退旧的 ACTION_VIEW
+        return runCatching { installViaView(context, apk) }.getOrDefault(false)
+    }
+
+    /** PackageInstaller 会话安装（带结果回执） */
+    private fun installViaSession(context: Context, apk: File): Boolean {
+        val installer = context.packageManager.packageInstaller
+        val params = PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL)
+        val sessionId = installer.createSession(params)
+        installer.openSession(sessionId).use { session ->
+            apk.inputStream().use { input ->
+                session.openWrite("engine.apk", 0, apk.length()).use { out ->
+                    input.copyTo(out)
+                    session.fsync(out)
+                }
             }
-            context.startActivity(intent)
-        }.isSuccess
+            val resultIntent = Intent(context, EngineInstallReceiver::class.java)
+            val pi = PendingIntent.getBroadcast(
+                context,
+                sessionId,
+                resultIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            session.commit(pi.intentSender)
+        }
+        return true
+    }
+
+    /** 回退方案：ACTION_VIEW 拉起系统安装器 */
+    private fun installViaView(context: Context, apk: File): Boolean {
+        val uri: Uri = FileProvider.getUriForFile(
+            context, "${context.packageName}.fileprovider", apk
+        )
+        val intent = Intent(Intent.ACTION_VIEW).apply {
+            setDataAndType(uri, "application/vnd.android.package-archive")
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        context.startActivity(intent)
+        return true
     }
 
     /** 发送控制指令给引擎（显式广播；允许投递给"已安装但未启动过"的应用） */

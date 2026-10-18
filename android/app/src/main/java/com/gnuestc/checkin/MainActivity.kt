@@ -59,6 +59,8 @@ class MainActivity : AppCompatActivity() {
     private val reqLocationCode = 1001
     // [双包 2026-10-18] 安装流程续接标记：先去授权"安装未知应用"，返回后自动继续安装
     private var pendingUnknownSources = false
+    // [修复 2026-10-18] 已发起引擎安装、待回前台校验结果（防止"安装没生效却无提示"）
+    private var awaitingEngineInstall = false
 
     /** 地图选点返回结果 */
     private val mapPicker =
@@ -943,6 +945,8 @@ class MainActivity : AppCompatActivity() {
             !info.installed -> getString(R.string.engine_status_missing)
             info.installedVersionCode < info.bundledVersionCode ->
                 getString(R.string.engine_status_outdated, info.installedVersionCode, info.bundledVersionCode)
+            // [修复 2026-10-18] 版本号相同但内容不一致（哈希检测）：也提示可重装
+            info.contentDiffers -> getString(R.string.engine_status_content_differs, info.installedVersionCode)
             else -> getString(R.string.engine_status_installed, info.installedVersionCode)
         }
         val items = arrayOf(
@@ -987,6 +991,7 @@ class MainActivity : AppCompatActivity() {
             return
         }
         if (EngineBridge.installOrUpdate(this)) {
+            awaitingEngineInstall = true // [修复 2026-10-18] 回到前台时校验是否真的安装成功
             LogStore.append(this, "[引擎] 已拉起后台组件安装（请在系统弹窗中确认）")
         } else {
             Toast.makeText(this, R.string.engine_install_failed, Toast.LENGTH_SHORT).show()
@@ -1004,6 +1009,30 @@ class MainActivity : AppCompatActivity() {
             pendingUnknownSources = false
             if (EngineBridge.canInstall(this)) installEngineFlow()
             return
+        }
+        // [修复 2026-10-18] 校验"发起的安装是否真的生效"：此前安装被取消/被拦截时毫无提示，
+        // 用户会误以为已更新（实际引擎一直停在旧版本）
+        if (awaitingEngineInstall) {
+            awaitingEngineInstall = false
+            if (info.installedVersionCode >= info.bundledVersionCode) {
+                Toast.makeText(
+                    this,
+                    getString(R.string.engine_update_ok, info.installedVersionCode),
+                    Toast.LENGTH_SHORT
+                ).show()
+                LogStore.append(this, "[引擎] 后台组件已更新到 v${info.installedVersionCode}")
+            } else {
+                val cur = if (info.installed) "v${info.installedVersionCode}" else "未安装"
+                Toast.makeText(
+                    this,
+                    getString(R.string.engine_update_not_applied, cur, info.bundledVersionCode),
+                    Toast.LENGTH_LONG
+                ).show()
+                LogStore.append(
+                    this,
+                    "[引擎] 警告：更新未生效（当前 $cur，目标 v${info.bundledVersionCode}）"
+                )
+            }
         }
         if (!info.installed) return
         // [双包 2026-10-18] 先同步状态再激活：确保引导页启动常驻服务时开关已就绪
