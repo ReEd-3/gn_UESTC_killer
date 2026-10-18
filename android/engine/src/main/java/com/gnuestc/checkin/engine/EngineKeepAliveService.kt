@@ -46,8 +46,8 @@ class EngineKeepAliveService : Service() {
         } else {
             startForeground(NOTIFICATION_ID, notification)
         }
-        // [v7 巡检链] 服务启动/被拉起时确保巡检链存在（重装/重启/更新后自动恢复）
-        EnginePatrol.scheduleNext(this)
+        // [v7 巡检链 / v8 网格] 服务启动/被拉起时确保巡检链存在（重装/重启/更新后自动恢复）
+        EnginePatrol.scheduleAll(this)
         return START_STICKY
     }
 

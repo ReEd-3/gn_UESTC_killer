@@ -69,11 +69,11 @@ class EngineReceiver : BroadcastReceiver() {
                 }
                 if (enabled) {
                     EngineKeepAliveService.start(context)
-                    // [v7] 安排巡检链（窗口内每 5 分钟一个巡检点，链式自续）
-                    EnginePatrol.scheduleNext(context)
+                    // [v7/v8] 安排巡检链（窗口内每 5 分钟一个巡检点，网格冗余）
+                    EnginePatrol.scheduleAll(context)
                 } else {
                     EngineKeepAliveService.stop(context)
-                    EnginePatrol.cancel(context)
+                    EnginePatrol.cancelAll(context)
                 }
             }
             // [v7 巡检链] 主应用回到前台时的立即补巡检（90 秒节流在引擎侧）

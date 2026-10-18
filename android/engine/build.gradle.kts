@@ -15,9 +15,9 @@ android {
         applicationId = "com.gnuestc.checkin.engine"
         minSdk = 26
         targetSdk = 35
-        // [双包 2026-10-18] v7：巡检链（窗口内每 5 分钟自续巡检，引擎独立完成打卡）
-        versionCode = 7
-        versionName = "0.7"
+        // [双包 2026-10-18] v8：巡检链升级为“锚点 + 双日网格”（多点冗余、自愈）+ 巡检自动复活常驻服务
+        versionCode = 8
+        versionName = "0.8"
     }
 
     buildTypes {

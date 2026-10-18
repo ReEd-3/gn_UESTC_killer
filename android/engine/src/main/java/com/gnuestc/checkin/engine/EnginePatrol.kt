@@ -24,7 +24,11 @@ import java.util.Locale
  */
 object EnginePatrol {
 
-    private const val RC_PATROL = 9201
+    // [v8 网格] 锚点闹钟 + 双组网格闹钟（“今天剩余” + “明天整窗”，每 5 分钟一个槽位，多点冗余自愈）
+    private const val RC_ANCHOR = 9201
+    private const val RC_SLOT_A = 9300
+    private const val RC_SLOT_B = 9400
+    private const val MAX_SLOTS = 40
     private const val INTERVAL_MS = 5 * 60_000L
     private const val MIN_RETRY_GAP_MS = 90_000L
 
@@ -35,10 +39,17 @@ object EnginePatrol {
     private fun fmtDate() = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
     private fun fmtTime() = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
 
-    private fun pi(context: Context): PendingIntent =
+    private fun patrolIntent(context: Context): Intent =
+        Intent(context, EnginePatrolReceiver::class.java)
+
+    /** 网格槽位专用 Intent（与锚点区分；不同 requestCode 即不同闹钟） */
+    private fun slotIntent(context: Context): Intent =
+        patrolIntent(context).setAction("com.gnuestc.checkin.engine.PATROL_SLOT")
+
+    private fun anchorPi(context: Context): PendingIntent =
         PendingIntent.getBroadcast(
-            context, RC_PATROL,
-            Intent(context, EnginePatrolReceiver::class.java),
+            context, RC_ANCHOR,
+            patrolIntent(context),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
@@ -67,23 +78,79 @@ object EnginePatrol {
         }
     }
 
-    /** 安排下一个巡检点（未启用/未登录时取消链，等下次 sync 恢复） */
-    fun scheduleNext(context: Context) {
-        if (!EnginePrefs.isKeepAliveEnabled(context) || EnginePrefs.getCookie(context).isBlank()) {
-            cancel(context)
-            return
-        }
-        val target = nextTriggerTime(context)
+    /**
+     * 安排巡检链（[v8 网格] 锚点 + 双组网格，多点冗余、自愈）：
+     *  - 锚点：下一个关键点（窗口开始 / 明天窗口开始 / 窗口内下一巡检点）
+     *  - 网格 A：“今天剩余”窗口内每 5 分钟一个独立闹钟
+     *  - 网格 B：“明天整窗”提前排满（即使今晚全部被系统放倒，明天仍有一整组）
+     *  每个闹钟各自独立：某个被拦/延后不影响其它；任何一次跑通即完成打卡
+     *  - 未启用/未登录时仅跳过（不破坏已排好的链）；显式关闭时才整体取消
+     */
+    fun scheduleAll(context: Context) {
+        if (!EnginePrefs.isKeepAliveEnabled(context) || EnginePrefs.getCookie(context).isBlank()) return
         val am = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
-        val p = pi(context)
-        runCatching { am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, target, p) }
-            .onFailure { runCatching { am.set(AlarmManager.RTC_WAKEUP, target, p) } }
+
+        // 锚点
+        armAt(am, anchorPi(context), nextTriggerTime(context))
+
+        val now = System.currentTimeMillis()
+        val today = fmtDate().format(Date(now))
+        val startToday = windowBoundary(0, now, EnginePrefs.getWinStart(context))
+        val endToday = windowBoundary(0, now, EnginePrefs.getWinEnd(context))
+
+        // 网格 A：今天剩余（已打卡则撤销）
+        if (EnginePrefs.getLastSuccessDate(context) == today) {
+            cancelSlots(context, RC_SLOT_A)
+        } else {
+            val from = maxOf(now + 3 * 60_000L, startToday)
+            if (from <= endToday) armGrid(context, am, RC_SLOT_A, from, endToday)
+        }
+
+        // 网格 B：明天整窗预排
+        armGrid(
+            context, am, RC_SLOT_B,
+            windowBoundary(1, now, EnginePrefs.getWinStart(context)),
+            windowBoundary(1, now, EnginePrefs.getWinEnd(context))
+        )
     }
 
-    /** 取消巡检链 */
-    fun cancel(context: Context) {
+    /** 取消全部巡检闹钟（显式关闭服务时调用） */
+    fun cancelAll(context: Context) {
         val am = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
-        runCatching { am.cancel(pi(context)) }
+        runCatching { am.cancel(anchorPi(context)) }
+        cancelSlots(context, RC_SLOT_A)
+        cancelSlots(context, RC_SLOT_B)
+    }
+
+    private fun armAt(am: AlarmManager, pi: PendingIntent, at: Long) {
+        runCatching { am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pi) }
+            .onFailure { runCatching { am.set(AlarmManager.RTC_WAKEUP, at, pi) } }
+    }
+
+    private fun armGrid(context: Context, am: AlarmManager, base: Int, fromMillis: Long, endMillis: Long) {
+        var t = fromMillis
+        var idx = 0
+        while (t <= endMillis && idx < MAX_SLOTS) {
+            val pi = PendingIntent.getBroadcast(
+                context, base + idx, slotIntent(context),
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            armAt(am, pi, t)
+            t += INTERVAL_MS
+            idx++
+        }
+    }
+
+    private fun cancelSlots(context: Context, base: Int) {
+        val am = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+        for (i in 0 until MAX_SLOTS) {
+            val pi = PendingIntent.getBroadcast(
+                context, base + i, slotIntent(context),
+                PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE
+            ) ?: continue
+            runCatching { am.cancel(pi) }
+            runCatching { pi.cancel() }
+        }
     }
 
     /** 执行一轮巡检（网络同步执行，请在后台线程调用；执行后会续排下一环） */
@@ -97,22 +164,25 @@ object EnginePatrol {
 
         // 已成功 → 链指向明天
         if (EnginePrefs.getLastSuccessDate(context) == today) {
-            scheduleNext(context)
+            scheduleAll(context)
             return
         }
         // 不在窗口内不尝试：时段外提交不生成记录，白白消耗"提交配额"（历史教训）
         val start = windowBoundary(0, now, EnginePrefs.getWinStart(context))
         val end = windowBoundary(0, now, EnginePrefs.getWinEnd(context))
         if (now < start || now > end) {
-            scheduleNext(context)
+            scheduleAll(context)
             return
         }
         // 节流：90 秒内不重复尝试（防止频繁打开应用反复提交）
         if (now - EnginePrefs.getLastAttemptAt(context) < MIN_RETRY_GAP_MS) {
-            scheduleNext(context)
+            scheduleAll(context)
             return
         }
         EnginePrefs.setLastAttemptAt(context, now)
+
+        // [v8] 巡检路径顺便保活常驻服务（被系统停掉后自动拉起；exact alarm 广播允许启动 FGS）
+        if (!EngineKeepAliveService.running) EngineKeepAliveService.start(context)
 
         val api = EngineCheckin(cookie)
         var ok = false
@@ -158,7 +228,7 @@ object EnginePatrol {
                 EngineEvents.send(context, EngineEvents.EVENT_CHECKIN_FAILED, message)
             }
         }
-        scheduleNext(context)
+        scheduleAll(context)
     }
 
     private fun notifyResult(context: Context, success: Boolean, message: String) {
