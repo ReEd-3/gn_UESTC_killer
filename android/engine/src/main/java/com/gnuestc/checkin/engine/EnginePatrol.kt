@@ -26,6 +26,7 @@ object EnginePatrol {
 
     // [v8 网格] 锚点闹钟 + 双组网格闹钟（“今天剩余” + “明天整窗”，每 5 分钟一个槽位，多点冗余自愈）
     private const val RC_ANCHOR = 9201
+    private const val RC_REVIVE = 9202
     private const val RC_SLOT_A = 9300
     private const val RC_SLOT_B = 9400
     private const val MAX_SLOTS = 40
@@ -122,6 +123,21 @@ object EnginePatrol {
         cancelSlots(context, RC_SLOT_B)
     }
 
+    /**
+     * [v12] 轻量"复活"通道：广播唤不醒被系统冻结的引擎时，
+     * 3 秒后用一条 exact alarm 触发自己（alarm 广播自带临时白名单，可合法启动前台服务）。
+     */
+    fun scheduleRevive(context: Context) {
+        if (!EnginePrefs.isKeepAliveEnabled(context)) return
+        val am = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+        val pi = PendingIntent.getBroadcast(
+            context, RC_REVIVE,
+            patrolIntent(context).setAction("com.gnuestc.checkin.engine.PATROL_REVIVE"),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        armAt(am, pi, System.currentTimeMillis() + 3_000L)
+    }
+
     private fun armAt(am: AlarmManager, pi: PendingIntent, at: Long) {
         runCatching { am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pi) }
             .onFailure { runCatching { am.set(AlarmManager.RTC_WAKEUP, at, pi) } }
@@ -159,6 +175,10 @@ object EnginePatrol {
         val cookie = EnginePrefs.getCookie(context)
         if (cookie.isBlank()) return
 
+        // [v12] 无论是否在窗口内：任何一次巡检触发都顺便保活常驻服务
+        //（exact alarm 广播会获得临时白名单，允许此时启动前台服务）
+        if (!EngineKeepAliveService.running) EngineKeepAliveService.start(context)
+
         val now = System.currentTimeMillis()
         val today = fmtDate().format(Date(now))
 
@@ -180,9 +200,6 @@ object EnginePatrol {
             return
         }
         EnginePrefs.setLastAttemptAt(context, now)
-
-        // [v8] 巡检路径顺便保活常驻服务（被系统停掉后自动拉起；exact alarm 广播允许启动 FGS）
-        if (!EngineKeepAliveService.running) EngineKeepAliveService.start(context)
 
         val api = EngineCheckin(cookie)
         var ok = false

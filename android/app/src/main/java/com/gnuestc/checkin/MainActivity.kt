@@ -64,6 +64,8 @@ class MainActivity : AppCompatActivity() {
     // [修复 2026-10-18] "卸载后重装"流程标记：卸载完成后自动重装内嵌 v5（修复签名冲突等场景）
     private var pendingEngineReinstall = false
     private var reinstallRequestedAt = 0L
+    // [修复 v12] 本次会话是否已做过"活动唤醒"引擎（每次打开应用做一次，用于恢复被冻结/停掉的引擎）
+    private var engineActivatedThisSession = false
 
     /** 地图选点返回结果 */
     private val mapPicker =
@@ -1077,8 +1079,14 @@ class MainActivity : AppCompatActivity() {
         syncEngineState()
         // [v7 巡检链] 打开应用即请求引擎补巡检一次（引擎内部 90 秒节流，避免频繁打开反复提交）
         EngineBridge.sendCommand(this, "patrol_now")
-        if (Prefs.getEngineActivatedVersion(this) != info.installedVersionCode) {
+        // [修复 v12] 每次打开应用做一次"活动唤醒"：广播无法唤醒被系统冻结/停掉的引擎时，
+        // 用前台活动启动来恢复引擎常驻服务（每会话只做一次，避免与引导页互相拉起）
+        val versionChanged = Prefs.getEngineActivatedVersion(this) != info.installedVersionCode
+        if (!engineActivatedThisSession || versionChanged) {
+            engineActivatedThisSession = true
             EngineBridge.activateEngine(this)
+        }
+        if (versionChanged) {
             Prefs.setEngineActivatedVersion(this, info.installedVersionCode)
             LogStore.append(this, "[引擎] 后台组件已就绪（v${info.installedVersionCode}），已完成初始化")
             Toast.makeText(this, R.string.engine_activated, Toast.LENGTH_SHORT).show()

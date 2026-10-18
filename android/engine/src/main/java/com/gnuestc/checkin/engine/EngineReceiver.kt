@@ -74,6 +74,8 @@ class EngineReceiver : BroadcastReceiver() {
                 }
                 if (enabled) {
                     EngineKeepAliveService.start(context)
+                    // [v12] 若广播唤不醒（后台启动限制），3 秒后用 exact alarm 再试一次（自带临时白名单）
+                    EnginePatrol.scheduleRevive(context)
                     // [v7/v8] 安排巡检链（窗口内每 5 分钟一个巡检点，网格冗余）
                     EnginePatrol.scheduleAll(context)
                 } else {

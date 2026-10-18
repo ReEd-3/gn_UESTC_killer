@@ -15,9 +15,9 @@ android {
         applicationId = "com.gnuestc.checkin.engine"
         minSdk = 26
         targetSdk = 35
-        // [双包 2026-10-19] v11：电池引导改为厂商无关的"标准意图阶梯"（系统自行路由），去掉硬编码厂商组件
-        versionCode = 11
-        versionName = "0.11"
+        // [双包 2026-10-19] v12：引擎复活通道（alarm 白名单自唤醒）+ 假开机广播过滤 + 打开应用活动唤醒
+        versionCode = 12
+        versionName = "0.12"
     }
 
     buildTypes {
