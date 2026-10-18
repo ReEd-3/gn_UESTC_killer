@@ -30,12 +30,16 @@ object Notifier {
             return
         }
 
+        // [改进 2026-10-18] 中间态（还会自动重试）用独立通知位并"只提醒一次"，避免重试期间反复响铃；
+        // 终态（成功 / 已完成 / 跳过等）正常提醒
+        val finalResult = CheckinRunner.isFinal(text)
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.stat_notify_sync)
             .setContentTitle("晚安打卡")
             .setContentText(text)
             .setAutoCancel(true)
+            .setOnlyAlertOnce(!finalResult)
             .build()
-        nm.notify(NOTIFICATION_ID, notification)
+        nm.notify(if (finalResult) NOTIFICATION_ID else NOTIFICATION_ID + 1, notification)
     }
 }

@@ -5,6 +5,7 @@ import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
 import android.animation.ArgbEvaluator
 import android.animation.ValueAnimator
+import android.app.NotificationManager
 import android.content.DialogInterface
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -792,32 +793,103 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    // [改进 2026-10-18] 原实现保留备查（旧版：顺序引导，一次只处理一项，无总览）：
+    // private fun openPermissionGuides() {
+    //     // 0) [修复 2026-10-18] 通知权限（Android 13+）：没有它收不到打卡结果提醒
+    //     if (Build.VERSION.SDK_INT >= 33 &&
+    //         ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+    //     ) {
+    //         LogStore.append(this, "[权限] 需要授予「通知」权限（用于接收打卡结果提醒）")
+    //         Toast.makeText(this, R.string.permission_notify_needed, Toast.LENGTH_SHORT).show()
+    //         ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1)
+    //         return
+    //     }
+    //     // 1) 精确闹钟权限（Android 12/13 需要；14+ 已在清单声明 USE_EXACT_ALARM 默认授予）
+    //     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !AlarmScheduler.canScheduleExact(this)) {
+    //         LogStore.append(this, "[权限] 需要授予「精确闹钟」权限")
+    //         startActivity(Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, Uri.parse("package:$packageName")))
+    //         return
+    //     }
+    //     // 2) 电池优化白名单（国产 ROM 还需在系统设置里允许自启动/后台运行）
+    //     val pm = getSystemService(POWER_SERVICE) as PowerManager
+    //     if (!pm.isIgnoringBatteryOptimizations(packageName)) {
+    //         LogStore.append(this, "[权限] 建议加入电池优化白名单")
+    //         @Suppress("BatteryLife")
+    //         startActivity(Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:$packageName")))
+    //         return
+    //     }
+    //     LogStore.append(this, "[权限] 已就绪")
+    //     Toast.makeText(this, "权限已就绪", Toast.LENGTH_SHORT).show()
+    // }
+
+    /**
+     * [改进 2026-10-18] 权限与后台运行检查（总览式）：
+     * 一次列出所有可自动检测的项目及当前状态，点击对应项直接去修复；
+     * 「自启动 / 后台运行」系统不提供检测接口，提供手动配置说明。
+     */
     private fun openPermissionGuides() {
-        // 0) [修复 2026-10-18] 通知权限（Android 13+）：没有它收不到打卡结果提醒
-        if (Build.VERSION.SDK_INT >= 33 &&
-            ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
-        ) {
-            LogStore.append(this, "[权限] 需要授予「通知」权限（用于接收打卡结果提醒）")
-            Toast.makeText(this, R.string.permission_notify_needed, Toast.LENGTH_SHORT).show()
-            ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1)
-            return
-        }
-        // 1) 精确闹钟权限（Android 12/13 需要；14+ 已在清单声明 USE_EXACT_ALARM 默认授予）
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !AlarmScheduler.canScheduleExact(this)) {
-            LogStore.append(this, "[权限] 需要授予「精确闹钟」权限")
-            startActivity(Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, Uri.parse("package:$packageName")))
-            return
-        }
-        // 2) 电池优化白名单（国产 ROM 还需在系统设置里允许自启动/后台运行）
+        val notifGranted = Build.VERSION.SDK_INT < 33 ||
+            ContextCompat.checkSelfPermission(
+                this, Manifest.permission.POST_NOTIFICATIONS
+            ) == PackageManager.PERMISSION_GRANTED
+        val nm = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
+        val notifOk = notifGranted && nm.areNotificationsEnabled()
+        val alarmOk = AlarmScheduler.canScheduleExact(this)
         val pm = getSystemService(POWER_SERVICE) as PowerManager
-        if (!pm.isIgnoringBatteryOptimizations(packageName)) {
-            LogStore.append(this, "[权限] 建议加入电池优化白名单")
-            @Suppress("BatteryLife")
-            startActivity(Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:$packageName")))
-            return
-        }
-        LogStore.append(this, "[权限] 已就绪")
-        Toast.makeText(this, "权限已就绪", Toast.LENGTH_SHORT).show()
+        val batteryOk = pm.isIgnoringBatteryOptimizations(packageName)
+
+        LogStore.append(
+            this,
+            "[权限] 检查：通知=${if (notifOk) "通过" else "未配置"}；" +
+                "精确闹钟=${if (alarmOk) "通过" else "未配置"}；" +
+                "电池优化=${if (batteryOk) "通过" else "未配置"}"
+        )
+
+        val items = arrayOf(
+            getString(if (notifOk) R.string.perm_notify_ok else R.string.perm_notify_bad),
+            getString(if (alarmOk) R.string.perm_alarm_ok else R.string.perm_alarm_bad),
+            getString(if (batteryOk) R.string.perm_battery_ok else R.string.perm_battery_bad),
+            getString(R.string.perm_autostart_entry)
+        )
+        MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.perm_check_title)
+            .setItems(items) { _, which ->
+                when (which) {
+                    0 -> when {
+                        !notifGranted -> requestNotificationPermissionIfNeeded()
+                        !nm.areNotificationsEnabled() -> startActivity(
+                            Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                                .putExtra(Settings.EXTRA_APP_PACKAGE, packageName)
+                        )
+                        else -> toastPermDone()
+                    }
+                    1 -> if (alarmOk) toastPermDone() else startActivity(
+                        Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, Uri.parse("package:$packageName"))
+                    )
+                    2 -> if (batteryOk) toastPermDone() else {
+                        @Suppress("BatteryLife")
+                        startActivity(
+                            Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:$packageName"))
+                        )
+                    }
+                    3 -> showAutostartTips()
+                }
+            }
+            .setPositiveButton(R.string.about_ok, null)
+            .show()
+    }
+
+    private fun toastPermDone() {
+        Toast.makeText(this, R.string.perm_item_done, Toast.LENGTH_SHORT).show()
+    }
+
+    /** 自启动 / 后台运行的手动配置说明（系统不提供检测接口） */
+    private fun showAutostartTips() {
+        MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.perm_autostart_entry)
+            .setMessage(R.string.perm_autostart_tips)
+            .setPositiveButton(R.string.about_ok, null)
+            .show()
     }
 }
 
