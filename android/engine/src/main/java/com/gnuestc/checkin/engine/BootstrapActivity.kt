@@ -23,11 +23,19 @@ class BootstrapActivity : Activity() {
 
     private var askedAlarmPermission = false
 
+    companion object {
+        /** 与主应用 EngineBridge 约定：启动意图携带的"是否开启常驻"开关 */
+        private const val EXTRA_KEEPALIVE = "keepalive"
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // [双包 2026-10-18] 借本次可见时机恢复常驻服务（若已在主应用中开启）；
-        // 放在引擎侧才有意义——主应用被划掉不影响它
-        if (EnginePrefs.isKeepAliveEnabled(this)) EngineKeepAliveService.start(this)
+        // [修复 2026-10-18] 按主应用随启动意图携带的开关状态启停常驻服务，
+        // 避免"引导页先于 sync 指令到达"时漏启动常驻；未携带时退回读取本地已同步的开关。
+        val wantKeepAlive = intent?.getBooleanExtra(EXTRA_KEEPALIVE, EnginePrefs.isKeepAliveEnabled(this))
+            ?: EnginePrefs.isKeepAliveEnabled(this)
+        EnginePrefs.setKeepAliveEnabled(this, wantKeepAlive)
+        if (wantKeepAlive) EngineKeepAliveService.start(this) else EngineKeepAliveService.stop(this)
         if (Build.VERSION.SDK_INT >= 33 &&
             ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) !=
             PackageManager.PERMISSION_GRANTED
