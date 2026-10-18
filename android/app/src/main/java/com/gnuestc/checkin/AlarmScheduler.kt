@@ -102,12 +102,21 @@ object AlarmScheduler {
     private fun set(context: Context, triggerAtMillis: Long) {
         val am = alarmManager(context)
         val pi = pendingIntent(context)
+        val prev = Prefs.getNextTrigger(context)
         val ok = runCatching {
             am.setAlarmClock(AlarmManager.AlarmClockInfo(triggerAtMillis, showIntent(context)), pi)
         }.isSuccess || runCatching {
             am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAtMillis, pi)
         }.isSuccess
-        if (!ok) LogStore.append(context, "[系统] 闹钟安排失败（精确闹钟权限未授予）")
+        if (!ok) {
+            LogStore.append(context, "[系统] 闹钟安排失败（精确闹钟权限未授予）")
+        } else if (prev != triggerAtMillis) {
+            // [诊断 2026-10-18] 仅当触发时间变化时记录，便于排查"闹钟到底有没有排上"
+            LogStore.append(
+                context,
+                "[系统] 定时任务已安排：${SimpleDateFormat("MM-dd HH:mm", Locale.getDefault()).format(Date(triggerAtMillis))}"
+            )
+        }
         Prefs.setNextTrigger(context, if (ok) triggerAtMillis else 0L)
     }
 

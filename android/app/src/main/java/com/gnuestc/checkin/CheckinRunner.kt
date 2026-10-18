@@ -43,8 +43,14 @@ object CheckinRunner {
                     )
                     when (resp.optInt("code")) {
                         0 -> {
-                            Prefs.markCheckedToday(context)
-                            "打卡成功"
+                            // [修复 2026-10-18] 二次确认：实测"接口返回 code=0 ≠ 学校真的记上了卡"
+                            // （不在有效时段内提交时同样返回成功，但不会形成打卡记录）
+                            if (verifyCheckedIn(api)) {
+                                Prefs.markCheckedToday(context)
+                                "打卡成功"
+                            } else {
+                                "打卡未生效：服务端未记录（可能不在学校有效时间内），将继续重试"
+                            }
                         }
                         4006 -> {
                             Prefs.markCheckedToday(context)
@@ -66,6 +72,18 @@ object CheckinRunner {
         Prefs.setLastResult(context, result)
         LogStore.append(context, "[打卡] $result")
         return result
+    }
+
+    /** [修复 2026-10-18] 提交后复查今日状态，确认服务端真的记录了打卡（最多查 3 次） */
+    private fun verifyCheckedIn(api: CheckinApi): Boolean {
+        repeat(3) { attempt ->
+            val ok = runCatching {
+                api.getToday().optJSONObject("data")?.optString("recordStatusCode") == "CHECKED_IN"
+            }.getOrDefault(false)
+            if (ok) return true
+            if (attempt < 2) Thread.sleep(1500)
+        }
+        return false
     }
 
     /** 附加同步（打卡点 / 时间窗口）：尽力而为，失败静默 */

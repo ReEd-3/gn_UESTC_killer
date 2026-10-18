@@ -94,7 +94,8 @@
     <string name="window_manual_title">手动设置时间窗口</string>
     <string name="window_manual_start">开始时间</string>
     <string name="window_manual_end">结束时间</string>
-    <string name="window_manual_hint">打卡会在开始时间后自动执行，窗口内失败每 5 分钟自动重试。\n手动设置后将锁定，不再被服务端自动覆盖；可随时在菜单中选择同步或重置解除。</string>
+    <string name="permission_notify_needed">请授予「通知」权限，用于接收打卡结果提醒</string>
+    <string name="window_manual_hint">打卡会在开始时间后自动执行，窗口内失败每 5 分钟自动重试。\n手动设置后将锁定，不再被服务端自动覆盖；可随时在菜单中选择同步或重置解除。\n注意：学校服务端仅在有效时段内接受打卡，设置在有效时段外可能不被记录。</string>
     <string name="window_manual_invalid">时间无效：结束时间需晚于开始时间至少 5 分钟</string>
     <string name="window_manual_done">已手动设置时间窗口：%1$s</string>
     <string name="window_manual_pick_start">选择开始时间</string>

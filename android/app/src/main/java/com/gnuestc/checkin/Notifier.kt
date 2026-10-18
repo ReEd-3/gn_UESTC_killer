@@ -25,6 +25,8 @@ object Notifier {
         if (Build.VERSION.SDK_INT >= 33 &&
             context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
         ) {
+            // [修复 2026-10-18] 无通知权限时把结果写入运行日志，避免打卡结果"静默消失"
+            LogStore.append(context, "[通知] 未授予通知权限，未发提醒：$text")
             return
         }
 

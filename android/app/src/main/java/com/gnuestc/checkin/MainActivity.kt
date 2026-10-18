@@ -760,6 +760,15 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun openPermissionGuides() {
+        // 0) [修复 2026-10-18] 通知权限（Android 13+）：没有它收不到打卡结果提醒
+        if (Build.VERSION.SDK_INT >= 33 &&
+            ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+        ) {
+            LogStore.append(this, "[权限] 需要授予「通知」权限（用于接收打卡结果提醒）")
+            Toast.makeText(this, R.string.permission_notify_needed, Toast.LENGTH_SHORT).show()
+            ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1)
+            return
+        }
         // 1) 精确闹钟权限（Android 12/13 需要；14+ 已在清单声明 USE_EXACT_ALARM 默认授予）
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !AlarmScheduler.canScheduleExact(this)) {
             LogStore.append(this, "[权限] 需要授予「精确闹钟」权限")
