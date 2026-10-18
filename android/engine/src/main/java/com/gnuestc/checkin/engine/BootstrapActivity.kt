@@ -25,6 +25,8 @@ class BootstrapActivity : Activity() {
 
     private var askedAlarmPermission = false
     private var askedBatteryOptimization = false
+    // [v15] 已跳系统页面，等待用户返回后复检（"点了允许就没下文"的修复核心）
+    private var awaitingReturn = false
 
     companion object {
         /** 与主应用 EngineBridge 约定：启动意图携带的"是否开启常驻"开关 */
@@ -58,14 +60,35 @@ class BootstrapActivity : Activity() {
         maybeCheckExactAlarm()
     }
 
-    // [修复 v9] 原 onResume 兜底会在"首次 onResume"就把刚弹出的对话框秒关
-    // （onCreate 同步链里已设置标志位，紧接着的第一次 onResume 立即 finish）；
-    // 且 noHistory=true 已能保证"跳系统设置页后返回时活动自动结束"，此兜底已无必要：
-    // override fun onResume() {
-    //     super.onResume()
-    //     // 从系统设置页（精确闹钟 / 电池优化）返回后结束
-    //     if (askedAlarmPermission || askedBatteryOptimization) finish()
-    // }
+    /**
+     * [v15] 从系统页面/弹窗返回后复检：
+     *  - 已生效 → 提示"已生效 ✓"并结束；
+     *  - 未生效 → 立即升级到下一级引导（不再"点完就没了"）。
+     * 首次 onResume（刚从 onCreate 进入）不受影响（awaitingReturn=false）。
+     */
+    override fun onResume() {
+        super.onResume()
+        if (!awaitingReturn) return
+        awaitingReturn = false
+        val pm = getSystemService(POWER_SERVICE) as PowerManager
+        if (pm.isIgnoringBatteryOptimizations(packageName)) {
+            EnginePrefs.setBatteryPromptDone(this, true)
+            android.widget.Toast.makeText(this, "后台运行权限已生效 ✓", android.widget.Toast.LENGTH_SHORT).show()
+            finish()
+            return
+        }
+        // 未生效 → 当场升级引导
+        val next = (EnginePrefs.getBatteryPromptStage(this) + 1).coerceAtMost(2)
+        EnginePrefs.setBatteryPromptStage(this, next)
+        if (next >= 2) EnginePrefs.setBatteryPromptDone(this, true)
+        showBatteryDialog(next)
+    }
+
+    /** [v15] 用户未返回而是离开了引导页 → 结束，下次激活再来（不残留） */
+    override fun onStop() {
+        super.onStop()
+        if (!awaitingReturn) finish()
+    }
 
     /** 精确闹钟权限自检（缺失时给出说明入口） */
     private fun maybeCheckExactAlarm() {
@@ -97,9 +120,8 @@ class BootstrapActivity : Activity() {
     }
 
     /**
-     * [v6/v11] 电池优化自检（厂商无关）：未豁免时按"标准意图阶梯"分级引导。
-     * 不假设任何厂商：每一级都用系统标准意图（由系统自行解析/路由到它自家的页面）；
-     * 每次激活先用标准 API 复检是否真的生效，未生效则进入下一级（最多 3 级，不会无限骚扰）。
+     * [v6/v15] 电池优化自检（厂商无关，闭环引导）：
+     * 未豁免时分级引导；每级跳转后由 onResume 复检，未生效当场升级，已生效当场确认。
      */
     private fun maybeCheckBattery() {
         val pm = getSystemService(POWER_SERVICE) as PowerManager
@@ -107,55 +129,84 @@ class BootstrapActivity : Activity() {
             finish()
             return
         }
-        val stage = EnginePrefs.getBatteryPromptStage(this).coerceIn(0, 2)
-        val message = when (stage) {
-            0 -> "为保证熄屏后定时打卡不被系统冻结，请点「去允许」，并在接下来的系统界面中允许本应用。"
-            1 -> "刚才的允许似乎未生效。请点「去设置」，在打开的页面中允许本应用（不同系统叫法不同：不优化 / 允许后台运行 / 允许完全后台行为）。"
-            else -> "最后一招：请点「应用信息」，在该页面中找到本应用的「电池 / 耗电管理 / 后台运行」相关选项并允许。"
+        showBatteryDialog(EnginePrefs.getBatteryPromptStage(this))
+    }
+
+    /** [v15] 按阶梯等级弹出引导对话框 */
+    private fun showBatteryDialog(stage: Int) {
+        val st = stage.coerceIn(0, 2)
+        val message = when (st) {
+            0 -> "为保证熄屏/划掉后台后定时打卡仍能运行，请允许本组件在后台运行。\n" +
+                "（部分系统在下一步弹窗里点\"允许\"并不足够，返回后会自动检查并继续引导）"
+            1 -> "刚才的允许没有真正生效。请点「打开应用信息」，在该页面的「电池 / 耗电管理」中选择" +
+                "\"允许完全后台行为\"（不同系统叫法不同：不优化 / 允许后台运行）。"
+            else -> "最后一步：打开应用信息后，找到本应用的「后台运行 / 耗电管理」相关开关并允许。"
         }
-        val actionText = when (stage) {
-            0 -> "去允许"
-            1 -> "去设置"
-            else -> "应用信息"
-        }
+        val action = if (st == 0) "去允许" else "打开应用信息"
         android.app.AlertDialog.Builder(this)
-            .setTitle("后台组件：请允许后台运行")
+            .setTitle("后台组件：需要后台运行权限")
             .setMessage(message)
-            .setPositiveButton(actionText) { _, _ ->
-                val launched = launchBatteryAssist(stage)
-                if (!launched) {
-                    android.widget.Toast.makeText(
-                        this,
-                        "未能打开系统设置，请手动在系统设置中允许本应用后台运行",
-                        android.widget.Toast.LENGTH_LONG
-                    ).show()
-                }
-                EnginePrefs.setBatteryPromptStage(this, (stage + 1).coerceAtMost(2))
-                if (stage >= 2) EnginePrefs.setBatteryPromptDone(this, true)
-                finish()
-            }
+            .setPositiveButton(action) { _, _ -> onBatteryAction(st) }
             .setNegativeButton("暂不") { _, _ -> finish() }
             .setOnCancelListener { finish() }
             .show()
     }
 
+    /** [v15] 执行跳转；成功跳转后保留页面，等用户返回复检 */
+    private fun onBatteryAction(stage: Int) {
+        val launched = if (stage == 0) launchRequestIgnore() else launchPowerSettings()
+        if (!launched) {
+            android.widget.Toast.makeText(
+                this,
+                "未能打开系统页面，请手动在系统设置中允许本应用后台运行",
+                android.widget.Toast.LENGTH_LONG
+            ).show()
+            finish()
+            return
+        }
+        awaitingReturn = true
+    }
+
+    /** stage0：系统标准"忽略电池优化"请求（由系统自行决定弹窗或页面） */
+    private fun launchRequestIgnore(): Boolean =
+        runCatching {
+            startActivity(
+                Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:$packageName"))
+            )
+        }.isSuccess
+
     /**
-     * [v11] 依次尝试系统标准入口（不含任何厂商名称），成功打开一个即返回：
-     * 标准意图由系统自行解析路由（例如某些系统会把它映射到自家的省电/耗电管理页面）。
+     * [v15] stage1+：依次尝试「厂商耗电管理页 → 应用信息页（标准）→ 电池优化列表（标准）」，
+     * 打开一个即成功。厂商页为"尽力而为"（全品牌通用表，打不开自动落到标准页面）。
      */
-    private fun launchBatteryAssist(stage: Int): Boolean {
-        val pkg = Uri.parse("package:$packageName")
-        val request = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, pkg)
-        val settingsList = Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
-        val details = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, pkg)
-        val ordered = when (stage) {
-            0 -> listOf(request, settingsList, details)
-            1 -> listOf(settingsList, request, details)
-            else -> listOf(details, settingsList)
+    private fun launchPowerSettings(): Boolean {
+        val vendors = listOf(
+            "com.oplus.battery" to "com.oplus.powermanager.fuelgaue.PowerUsageModelActivity",
+            "com.coloros.oppoguardelf" to "com.coloros.powermanager.fuelgaue.PowerUsageModelActivity",
+            "com.miui.powerkeeper" to "com.miui.powerkeeper.ui.HiddenAppsConfigActivity",
+            "com.huawei.systemmanager" to "com.huawei.systemmanager.power.ui.HwPowerManagerActivity"
+        )
+        for ((p, c) in vendors) {
+            val ok = runCatching {
+                startActivity(
+                    Intent().apply {
+                        component = ComponentName(p, c)
+                        putExtra("pkg_name", packageName)
+                        putExtra("package_name", packageName)
+                        putExtra("packageLabel", packageName)
+                        putExtra("show_mode", 1)
+                    }
+                )
+            }.isSuccess
+            if (ok) return true
         }
-        for (intent in ordered) {
-            if (runCatching { startActivity(intent) }.isSuccess) return true
-        }
-        return false
+        // 标准兜底：应用信息页（全平台都有）→ 电池优化列表
+        if (runCatching {
+                startActivity(
+                    Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName"))
+                )
+            }.isSuccess
+        ) return true
+        return runCatching { startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)) }.isSuccess
     }
 }

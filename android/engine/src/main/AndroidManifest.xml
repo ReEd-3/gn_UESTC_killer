@@ -28,12 +28,13 @@
         android:supportsRtl="true">
 
         <!-- 安装后由主应用拉起一次：解除"新安装应用"的 stopped 状态 + 申请通知权限；
-             半透明、不入最近任务，用户几乎无感 -->
+             半透明、不入最近任务，用户几乎无感
+             [v15] 去掉 noHistory：跳转系统设置后必须能"返回复检并继续引导"
+             （离开页面由 onStop 自行结束，不会残留） -->
         <activity
             android:name=".BootstrapActivity"
             android:excludeFromRecents="true"
             android:exported="true"
-            android:noHistory="true"
             android:permission="com.gnuestc.checkin.permission.CONTROL_ENGINE"
             android:taskAffinity=""
             android:theme="@android:style/Theme.Translucent.NoTitleBar" />

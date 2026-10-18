@@ -15,9 +15,9 @@ android {
         applicationId = "com.gnuestc.checkin.engine"
         minSdk = 26
         targetSdk = 35
-        // [双包 2026-10-19] v14：测试闹钟轮换 PendingIntent（不继承旧闹钟被系统推迟的状态）
-        versionCode = 14
-        versionName = "0.14"
+        // [双包 2026-10-19] v15：引导闭环——去掉 noHistory，跳系统页后返回即复检；未生效当场升级到应用信息页/厂商耗电页
+        versionCode = 15
+        versionName = "0.15"
     }
 
     buildTypes {
