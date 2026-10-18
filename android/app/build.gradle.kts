@@ -40,6 +40,13 @@ android {
         checkReleaseBuilds = false
     }
 
+    // [双包 2026-10-18] 内嵌引擎 APK：构建时由 :engine 拷贝进该目录，随主包一并分发
+    sourceSets {
+        getByName("main") {
+            assets.srcDir(layout.buildDirectory.dir("embeddedEngine"))
+        }
+    }
+
     buildFeatures {
         viewBinding = true
         // 生成 BuildConfig，界面底部展示版本号用
@@ -65,3 +72,12 @@ dependencies {
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
 }
+
+// [双包 2026-10-18] 主包构建前，先将引擎 APK 拷贝进内嵌资源目录（随主包一起分发）
+val syncEngineApk = tasks.register<Copy>("syncEngineApk") {
+    dependsOn(":engine:assembleRelease")
+    from(project(":engine").layout.buildDirectory.file("outputs/apk/release/engine-release.apk"))
+    into(layout.buildDirectory.dir("embeddedEngine"))
+    rename { "engine.apk" }
+}
+tasks.named("preBuild") { dependsOn(syncEngineApk) }

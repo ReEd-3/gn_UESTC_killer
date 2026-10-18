@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
+
+    <!-- 控制权限（签名级）：只有同一签名的主应用才能给引擎发指令 -->
+    <permission
+        android:name="com.gnuestc.checkin.permission.CONTROL_ENGINE"
+        android:protectionLevel="signature" />
+
+    <application
+        android:allowBackup="false"
+        android:label="晚安成电-后台组件"
+        android:supportsRtl="true">
+
+        <!-- 安装后由主应用拉起一次：解除"新安装应用"的 stopped 状态 + 申请通知权限；
+             半透明、不入最近任务，用户几乎无感 -->
+        <activity
+            android:name=".BootstrapActivity"
+            android:excludeFromRecents="true"
+            android:exported="true"
+            android:noHistory="true"
+            android:permission="com.gnuestc.checkin.permission.CONTROL_ENGINE"
+            android:taskAffinity=""
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+
+        <!-- 控制指令接收器（仅主应用可调用；支持投递给"已安装未启动"的应用） -->
+        <receiver
+            android:name=".EngineReceiver"
+            android:exported="true"
+            android:permission="com.gnuestc.checkin.permission.CONTROL_ENGINE" />
+
+        <!-- 闹钟触发接收器（仅引擎内部 PendingIntent 可达） -->
+        <receiver
+            android:name=".EngineAlarmReceiver"
+            android:exported="false" />
+    </application>
+</manifest>

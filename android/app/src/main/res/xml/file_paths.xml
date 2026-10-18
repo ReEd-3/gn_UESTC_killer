@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- [双包 2026-10-18] 内嵌引擎 APK 提取到 cacheDir/apk 后交由系统安装器读取 -->
+    <cache-path name="engine_apk" path="apk/" />
+</paths>

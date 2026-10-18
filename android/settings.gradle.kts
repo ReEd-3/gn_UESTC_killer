@@ -23,3 +23,5 @@ dependencyResolutionManagement {
 
 rootProject.name = "GNCheckin"
 include(":app")
+// [双包 2026-10-18] 后台引擎独立应用（无界面；由主应用内嵌分发并引导安装）
+include(":engine")

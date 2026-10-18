@@ -4,6 +4,7 @@ android/.kotlin/
 android/.idea/
 android/local.properties
 android/app/build/
+android/engine/build/
 android/build/
 android/captures/
 android/.cxx/

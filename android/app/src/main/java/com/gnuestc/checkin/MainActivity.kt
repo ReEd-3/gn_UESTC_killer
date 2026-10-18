@@ -152,6 +152,11 @@ class MainActivity : AppCompatActivity() {
             binding.drawerLayout.closeDrawer(binding.drawerPanel)
             openPermissionGuides()
         }
+        // [双包 2026-10-18] 后台组件（引擎）入口
+        binding.menuEngine.setOnClickListener {
+            binding.drawerLayout.closeDrawer(binding.drawerPanel)
+            showEngineMenu()
+        }
         // [登录账号已移回主界面按钮，待审查后删除]
         /*
         binding.menuLogin.setOnClickListener {
@@ -222,6 +227,8 @@ class MainActivity : AppCompatActivity() {
         // [新增 2026-10-18] 按开关状态同步常驻服务（登录后才真正启动）
         KeepAliveService.syncKeepAlive(this)
         refreshStatus()
+        // [双包 2026-10-18] 检测后台组件安装状态，必要时引导安装
+        maybePromptEngineInstall()
     }
 
     override fun onResume() {
@@ -897,6 +904,79 @@ class MainActivity : AppCompatActivity() {
             .setMessage(R.string.perm_autostart_tips)
             .setPositiveButton(R.string.about_ok, null)
             .show()
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // [双包 2026-10-18] 后台组件（引擎）相关
+    // ─────────────────────────────────────────────────────────────
+
+    /** 启动时检测：未安装/需更新 → 引导安装（首次引导未看过时先不弹，避免弹窗叠加） */
+    private fun maybePromptEngineInstall() {
+        if (!Prefs.isFirstRunGuideShown(this)) return
+        val info = EngineBridge.query(this)
+        if (!info.needsInstall) return
+        MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.engine_prompt_title)
+            .setMessage(R.string.engine_prompt_msg)
+            .setPositiveButton(R.string.engine_install) { _, _ -> installEngineFlow() }
+            .setNegativeButton(R.string.map_cancel, null)
+            .show()
+    }
+
+    /** 后台组件（引擎）菜单：安装/更新 + 连通与测试指令 */
+    private fun showEngineMenu() {
+        val info = EngineBridge.query(this)
+        val status = when {
+            !info.installed -> getString(R.string.engine_status_missing)
+            info.installedVersionCode < info.bundledVersionCode ->
+                getString(R.string.engine_status_outdated, info.installedVersionCode, info.bundledVersionCode)
+            else -> getString(R.string.engine_status_installed, info.installedVersionCode)
+        }
+        val items = arrayOf(
+            getString(R.string.engine_install),
+            getString(R.string.engine_test_alarm),
+            getString(R.string.engine_ping)
+        )
+        MaterialAlertDialogBuilder(this)
+            .setTitle(getString(R.string.engine_menu_title, status))
+            .setItems(items) { _, which ->
+                when (which) {
+                    0 -> installEngineFlow()
+                    1 -> {
+                        // 保险：先尝试拉起引擎引导页（解除 stopped 状态），再发指令
+                        EngineBridge.activateEngine(this)
+                        EngineBridge.sendCommand(this, "schedule_test") { it.putExtra("minutes", 2) }
+                        Toast.makeText(this, R.string.engine_sent_test, Toast.LENGTH_LONG).show()
+                        LogStore.append(this, "[引擎] 已发送测试闹钟指令（2 分钟后触发）")
+                    }
+                    2 -> {
+                        EngineBridge.activateEngine(this)
+                        EngineBridge.sendCommand(this, "ping")
+                        Toast.makeText(this, R.string.engine_sent_ping, Toast.LENGTH_SHORT).show()
+                        LogStore.append(this, "[引擎] 已发送连通测试")
+                    }
+                }
+            }
+            .setPositiveButton(R.string.about_ok, null)
+            .show()
+    }
+
+    /** 安装流程：先检查「安装未知应用」权限，再拉起系统安装器 */
+    private fun installEngineFlow() {
+        if (!EngineBridge.canInstall(this)) {
+            Toast.makeText(this, R.string.engine_need_unknown_source, Toast.LENGTH_LONG).show()
+            runCatching {
+                startActivity(
+                    Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:$packageName"))
+                )
+            }
+            return
+        }
+        if (EngineBridge.installOrUpdate(this)) {
+            LogStore.append(this, "[引擎] 已拉起后台组件安装（请在系统弹窗中确认）")
+        } else {
+            Toast.makeText(this, R.string.engine_install_failed, Toast.LENGTH_SHORT).show()
+        }
     }
 }
 

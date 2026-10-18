@@ -570,6 +570,22 @@
             android:textColor="@color/text_primary"
             android:textSize="14sp" />
 
+        <!-- 后台组件（引擎）[双包 2026-10-18] -->
+        <TextView
+            android:id="@+id/menuEngine"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="?attr/selectableItemBackground"
+            android:clickable="true"
+            android:focusable="true"
+            android:paddingStart="20dp"
+            android:paddingTop="14dp"
+            android:paddingEnd="20dp"
+            android:paddingBottom="14dp"
+            android:text="@string/drawer_engine"
+            android:textColor="@color/text_primary"
+            android:textSize="14sp" />
+
         <!-- 测试打卡 -->
         <TextView
             android:id="@+id/menuTest"
