@@ -9,7 +9,9 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.Build
+import android.os.Handler
 import android.os.IBinder
+import android.os.Looper
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 
@@ -23,11 +25,15 @@ import androidx.core.content.ContextCompat
  */
 class EngineKeepAliveService : Service() {
 
+    /** [v5] 常驻备份定时器用的主线程 Handler（进程存活期间有效） */
+    private val mainHandler = Handler(Looper.getMainLooper())
+
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onCreate() {
         super.onCreate()
         running = true
+        instance = this
         createChannel(this)
     }
 
@@ -44,6 +50,7 @@ class EngineKeepAliveService : Service() {
 
     override fun onDestroy() {
         running = false
+        instance = null
         super.onDestroy()
     }
 
@@ -56,6 +63,10 @@ class EngineKeepAliveService : Service() {
         @Volatile
         var running = false
             private set
+
+        /** [v5] 运行中的服务实例（供"常驻备份"定时器使用） */
+        @Volatile
+        private var instance: EngineKeepAliveService? = null
 
         fun start(context: Context) {
             runCatching {
@@ -71,6 +82,26 @@ class EngineKeepAliveService : Service() {
                 context.stopService(Intent(context, EngineKeepAliveService::class.java))
             }
             running = false
+        }
+
+        /**
+         * [v5] 常驻备份通道：在常驻服务进程内挂一条 Handler 延迟消息。
+         * 主应用被划掉后常驻服务仍存活（已实测），只要进程活着，这条通道到点即触发，
+         * 作为"系统闹钟被系统清理/延后"时的兜底。
+         * @return 是否成功挂上（服务未运行时返回 false，系统闹钟通道仍有效）
+         */
+        fun scheduleTestBackup(context: Context, triggerAtMillis: Long): Boolean {
+            val svc = instance ?: return false
+            val delay = triggerAtMillis - System.currentTimeMillis()
+            if (delay <= 0) return false
+            svc.mainHandler.postDelayed({
+                EngineAlarmReceiver.postFired(
+                    svc.applicationContext,
+                    EngineAlarmReceiver.NOTIFY_ID_BACKUP,
+                    "常驻备份"
+                )
+            }, delay)
+            return true
         }
 
         private fun buildNotification(context: Context): Notification {

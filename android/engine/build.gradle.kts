@@ -15,9 +15,9 @@ android {
         applicationId = "com.gnuestc.checkin.engine"
         minSdk = 26
         targetSdk = 35
-        // [双包 2026-10-18] v4：补齐指令接收器 intent-filter（修复指令广播静默丢失）+ 常驻通知点击修复
-        versionCode = 4
-        versionName = "0.4"
+        // [双包 2026-10-18] v5：测试闹钟"双通道"（系统闹钟 + 常驻备份）+ 自诊断（通知标注模式/通道）
+        versionCode = 5
+        versionName = "0.5"
     }
 
     buildTypes {

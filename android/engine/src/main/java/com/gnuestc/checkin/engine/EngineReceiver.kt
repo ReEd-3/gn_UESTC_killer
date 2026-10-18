@@ -37,9 +37,13 @@ class EngineReceiver : BroadcastReceiver() {
             "schedule_test" -> {
                 val minutes = intent.getIntExtra(EXTRA_MINUTES, 2).coerceIn(1, 120)
                 val at = System.currentTimeMillis() + minutes * 60_000L
-                scheduleAlarm(context, at)
+                val exact = scheduleAlarm(context, at)
+                // [v5] 双通道：再挂一条"常驻备份"内存定时器（系统闹钟被清/被延后时的救命通道）
+                val backup = EngineKeepAliveService.scheduleTestBackup(context, at)
                 val fmt = SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date(at))
-                notify(context, NOTIFY_SCHEDULED, "测试闹钟已安排", "将于 $fmt 触发 —— 可在此之前划掉主应用")
+                val mode = if (exact) "精确模式" else "兼容模式（可能延迟）"
+                val backupText = if (backup) "常驻备份已挂" else "常驻备份未挂（常驻服务未运行）"
+                notify(context, NOTIFY_SCHEDULED, "测试闹钟已安排", "将于 $fmt 触发 · $mode · $backupText")
             }
             // [双包 2026-10-18] 主应用同步常驻状态：开关 + 下次打卡时间
             "sync" -> {
@@ -56,18 +60,21 @@ class EngineReceiver : BroadcastReceiver() {
         }
     }
 
-    private fun scheduleAlarm(context: Context, triggerAtMillis: Long) {
+    /** 安排测试闹钟；@return 是否使用了"精确闹钟"（false = 已降级为可能延迟的兼容模式） */
+    private fun scheduleAlarm(context: Context, triggerAtMillis: Long): Boolean {
         val am = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
         val pi = PendingIntent.getBroadcast(
             context, 0,
             Intent(context, EngineAlarmReceiver::class.java),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
-        try {
+        return try {
             am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAtMillis, pi)
+            true
         } catch (t: Throwable) {
             // 精确闹钟权限异常时回退为非精确闹钟（仍能触发，只是可能略延迟）
             am.set(AlarmManager.RTC_WAKEUP, triggerAtMillis, pi)
+            false
         }
     }
 
