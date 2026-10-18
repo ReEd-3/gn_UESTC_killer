@@ -35,6 +35,7 @@ class EngineKeepAliveService : Service() {
         running = true
         instance = this
         createChannel(this)
+        EngineEvents.send(this, EngineEvents.EVENT_SERVICE_CREATED)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -49,6 +50,7 @@ class EngineKeepAliveService : Service() {
     }
 
     override fun onDestroy() {
+        EngineEvents.send(this, EngineEvents.EVENT_SERVICE_DESTROYED)
         running = false
         instance = null
         super.onDestroy()
@@ -95,6 +97,7 @@ class EngineKeepAliveService : Service() {
             val delay = triggerAtMillis - System.currentTimeMillis()
             if (delay <= 0) return false
             svc.mainHandler.postDelayed({
+                EngineEvents.send(svc.applicationContext, EngineEvents.EVENT_BACKUP_FIRED, "常驻备份")
                 EngineAlarmReceiver.postFired(
                     svc.applicationContext,
                     EngineAlarmReceiver.NOTIFY_ID_BACKUP,

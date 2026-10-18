@@ -8,6 +8,7 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.PowerManager
 import android.provider.Settings
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
@@ -22,6 +23,7 @@ import androidx.core.content.ContextCompat
 class BootstrapActivity : Activity() {
 
     private var askedAlarmPermission = false
+    private var askedBatteryOptimization = false
 
     companion object {
         /** 与主应用 EngineBridge 约定：启动意图携带的"是否开启常驻"开关 */
@@ -57,8 +59,8 @@ class BootstrapActivity : Activity() {
 
     override fun onResume() {
         super.onResume()
-        // 从「精确闹钟」设置页返回后复检
-        if (askedAlarmPermission) finish()
+        // 从系统设置页（精确闹钟 / 电池优化）返回后结束
+        if (askedAlarmPermission || askedBatteryOptimization) finish()
     }
 
     /** 精确闹钟权限自检（缺失时给出说明入口） */
@@ -86,6 +88,36 @@ class BootstrapActivity : Activity() {
                     .show()
                 return
             }
+        }
+        maybeCheckBattery()
+    }
+
+    /**
+     * [v6] 电池优化自检：未豁免时引导一次。
+     * 重装组件后系统会重置该设置；若被系统冻结/限制，定时任务可能不触发。
+     */
+    private fun maybeCheckBattery() {
+        val pm = getSystemService(POWER_SERVICE) as PowerManager
+        if (!pm.isIgnoringBatteryOptimizations(packageName)) {
+            askedBatteryOptimization = true
+            android.app.AlertDialog.Builder(this)
+                .setTitle("后台组件：建议允许后台运行")
+                .setMessage("防止系统在后台冻结/限制本组件（会影响定时打卡），建议在电池设置中允许其后台运行。")
+                .setPositiveButton("去设置") { _, _ ->
+                    runCatching {
+                        startActivity(
+                            Intent(
+                                Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
+                                Uri.parse("package:$packageName")
+                            )
+                        )
+                    }
+                    finish()
+                }
+                .setNegativeButton("暂不") { _, _ -> finish() }
+                .setOnCancelListener { finish() }
+                .show()
+            return
         }
         finish()
     }

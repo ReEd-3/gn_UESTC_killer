@@ -22,6 +22,7 @@ import java.util.Locale
 class EngineAlarmReceiver : BroadcastReceiver() {
 
     override fun onReceive(context: Context, intent: Intent) {
+        EngineEvents.send(context, EngineEvents.EVENT_ALARM_FIRED, "系统闹钟")
         postFired(context, NOTIFY_ID, "系统闹钟")
     }
 

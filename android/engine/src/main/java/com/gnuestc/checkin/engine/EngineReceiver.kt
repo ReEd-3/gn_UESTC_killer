@@ -44,6 +44,8 @@ class EngineReceiver : BroadcastReceiver() {
                 val mode = if (exact) "精确模式" else "兼容模式（可能延迟）"
                 val backupText = if (backup) "常驻备份已挂" else "常驻备份未挂（常驻服务未运行）"
                 notify(context, NOTIFY_SCHEDULED, "测试闹钟已安排", "将于 $fmt 触发 · $mode · $backupText")
+                // [v6] 事件上报：让主应用日志也能看到引擎受理情况
+                EngineEvents.send(context, EngineEvents.EVENT_TEST_SCHEDULED, "$mode · $backupText")
             }
             // [双包 2026-10-18] 主应用同步常驻状态：开关 + 下次打卡时间
             "sync" -> {

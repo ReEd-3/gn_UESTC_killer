@@ -6,6 +6,10 @@
     <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <!-- [v6] 电池优化引导（重装后系统会重置该设置，被限制会影响定时触发） -->
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    <!-- [v6] 向主应用上报运行事件：接收方挂的是该签名级权限，发送方需持有（同签名自动授予） -->
+    <uses-permission android:name="com.gnuestc.checkin.permission.CONTROL_ENGINE" />
 
     <!-- [修复 2026-10-18] 包可见性：允许引擎查询主应用
          （Android 11+ 默认查不到其它应用；否则 getLaunchIntentForPackage 返回 null，通知点击无反应） -->

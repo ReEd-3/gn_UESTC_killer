@@ -15,9 +15,9 @@ android {
         applicationId = "com.gnuestc.checkin.engine"
         minSdk = 26
         targetSdk = 35
-        // [双包 2026-10-18] v5：测试闹钟"双通道"（系统闹钟 + 常驻备份）+ 自诊断（通知标注模式/通道）
-        versionCode = 5
-        versionName = "0.5"
+        // [双包 2026-10-18] v6：引擎→主应用事件上报（服务创建/销毁、闹钟/备份触发）+ 电池优化引导
+        versionCode = 6
+        versionName = "0.6"
     }
 
     buildTypes {

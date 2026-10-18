@@ -68,6 +68,12 @@
             android:name=".EngineInstallReceiver"
             android:exported="false" />
 
+        <!-- [诊断 2026-10-18] 引擎运行事件上报入口（仅同签名引擎可调用） -->
+        <receiver
+            android:name=".EngineEventReceiver"
+            android:exported="true"
+            android:permission="com.gnuestc.checkin.permission.CONTROL_ENGINE" />
+
         <!-- 开机重建闹钟；BOOT_COMPLETED 是受保护广播，只有系统能发出 -->
         <receiver
             android:name=".BootReceiver"
