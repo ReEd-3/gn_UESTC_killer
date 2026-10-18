@@ -128,6 +128,8 @@ object EngineBridge {
     fun sendCommand(context: Context, cmd: String, configure: ((Intent) -> Unit)? = null) {
         val intent = Intent(ACTION_CMD).apply {
             setPackage(ENGINE_PACKAGE)
+            // [修复 2026-10-18] 同时显式指定接收组件：确保指令必定送达引擎（双保险）
+            setClassName(ENGINE_PACKAGE, "$ENGINE_PACKAGE.EngineReceiver")
             putExtra("cmd", cmd)
             addFlags(Intent.FLAG_INCLUDE_STOPPED_PACKAGES)
             configure?.invoke(this)

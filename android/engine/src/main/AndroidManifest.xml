@@ -34,11 +34,17 @@
             android:taskAffinity=""
             android:theme="@android:style/Theme.Translucent.NoTitleBar" />
 
-        <!-- 控制指令接收器（仅主应用可调用；支持投递给"已安装未启动"的应用） -->
+        <!-- 控制指令接收器（仅主应用可调用；支持投递给"已安装未启动"的应用）
+             [修复 2026-10-18] "指定包名+动作"的广播必须靠 intent-filter 才能匹配投递；
+             此前缺此配置，导致所有指令（ping/sync/测试闹钟）静默丢失 -->
         <receiver
             android:name=".EngineReceiver"
             android:exported="true"
-            android:permission="com.gnuestc.checkin.permission.CONTROL_ENGINE" />
+            android:permission="com.gnuestc.checkin.permission.CONTROL_ENGINE">
+            <intent-filter>
+                <action android:name="com.gnuestc.checkin.engine.action.CMD" />
+            </intent-filter>
+        </receiver>
 
         <!-- 闹钟触发接收器（仅引擎内部 PendingIntent 可达） -->
         <receiver

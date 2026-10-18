@@ -429,7 +429,10 @@ class MainActivity : AppCompatActivity() {
     private fun refreshConsole() {
         val lines = LogStore.all(this)
         binding.tvConsole.text = if (lines.isEmpty()) getString(R.string.log_empty) else lines.joinToString("\n")
+        // [修复 2026-10-18] 冷启动首次刷新常发生在布局完成之前，单次 post 会落空（日志停在最旧处）：
+        // 布局完成后滚底 + 补一次延迟兜底，保证打开应用时看到的是最新日志
         binding.scrollConsole.post { binding.scrollConsole.fullScroll(View.FOCUS_DOWN) }
+        binding.scrollConsole.postDelayed({ binding.scrollConsole.fullScroll(View.FOCUS_DOWN) }, 120L)
     }
 
     /** 应用介绍（文本位于 strings.xml 的 about_content；网址可轻点打开、文本可长按选中复制） */
