@@ -15,9 +15,9 @@ android {
         applicationId = "com.gnuestc.checkin.engine"
         minSdk = 26
         targetSdk = 35
-        // [双包 2026-10-19] v12：引擎复活通道（alarm 白名单自唤醒）+ 假开机广播过滤 + 打开应用活动唤醒
-        versionCode = 12
-        versionName = "0.12"
+        // [双包 2026-10-19] v13：引擎闹钟升级为 setAlarmClock 优先（抗厂商闹钟调整）；心跳到点后继续跳动
+        versionCode = 13
+        versionName = "0.13"
     }
 
     buildTypes {

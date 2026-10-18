@@ -97,7 +97,7 @@ class EngineReceiver : BroadcastReceiver() {
         }
     }
 
-    /** 安排测试闹钟；@return 是否使用了"精确闹钟"（false = 已降级为可能延迟的兼容模式） */
+    /** 安排测试闹钟；@return 是否使用了"精确/闹钟级"（false = 已降级为可能延迟的兼容模式） */
     private fun scheduleAlarm(context: Context, triggerAtMillis: Long): Boolean {
         val am = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
         val pi = PendingIntent.getBroadcast(
@@ -105,13 +105,18 @@ class EngineReceiver : BroadcastReceiver() {
             Intent(context, EngineAlarmReceiver::class.java),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
+        // [v13] 优先"闹钟级"（最不易被系统/厂商省电接管），失败再退精确/普通
         return try {
-            am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAtMillis, pi)
+            am.setAlarmClock(AlarmManager.AlarmClockInfo(triggerAtMillis, null), pi)
             true
         } catch (t: Throwable) {
-            // 精确闹钟权限异常时回退为非精确闹钟（仍能触发，只是可能略延迟）
-            am.set(AlarmManager.RTC_WAKEUP, triggerAtMillis, pi)
-            false
+            try {
+                am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAtMillis, pi)
+                true
+            } catch (t2: Throwable) {
+                am.set(AlarmManager.RTC_WAKEUP, triggerAtMillis, pi)
+                false
+            }
         }
     }
 

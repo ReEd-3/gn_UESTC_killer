@@ -41,8 +41,11 @@ class EngineKeepAliveService : Service() {
         stopTickerInternal()
         val r = object : Runnable {
             override fun run() {
-                val left = triggerAt - System.currentTimeMillis()
-                if (left <= 0) {
+                val nowMs = System.currentTimeMillis()
+                val left = triggerAt - nowMs
+                // [v13] 到点后继续跳动（改为"等待系统投递"），直到真触发或超时 1 小时——
+                // 这样"闹钟被系统推迟"与"引擎冻结"可区分：前者心跳继续、后者心跳停止
+                if (left <= 0 && nowMs - triggerAt > 60 * 60_000L) {
                     stopTickerInternal()
                     return
                 }
@@ -74,10 +77,18 @@ class EngineKeepAliveService : Service() {
             return
         }
         val fmt = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
-        val text = "将于 ${fmt.format(Date(triggerAt))} 触发 · $detail · 剩 ${leftMs / 1000} 秒 · 心跳 ${fmt.format(Date())}"
+        val heartbeat = fmt.format(Date())
+        val text = if (leftMs > 0) {
+            "将于 ${fmt.format(Date(triggerAt))} 触发 · $detail · 剩 ${leftMs / 1000} 秒 · 心跳 $heartbeat"
+        } else {
+            "已到点，等待系统投递（若长时间未触发=被系统延迟）· 心跳 $heartbeat"
+        }
         val n = NotificationCompat.Builder(this, "engine_status")
             .setSmallIcon(android.R.drawable.stat_notify_sync)
-            .setContentTitle("打卡引擎 · 测试闹钟已安排（心跳跳动中）")
+            .setContentTitle(
+                if (leftMs > 0) "打卡引擎 · 测试闹钟已安排（心跳跳动中）"
+                else "打卡引擎 · 测试闹钟已到点（等待触发）"
+            )
             .setContentText(text)
             .setOnlyAlertOnce(true)
             .setAutoCancel(true)

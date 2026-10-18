@@ -138,9 +138,16 @@ object EnginePatrol {
         armAt(am, pi, System.currentTimeMillis() + 3_000L)
     }
 
+    /**
+     * [v13] 统一闹钟登记：优先用"闹钟级" setAlarmClock——系统最高优先级，
+     * 各家省电策略（如 OPPO 的 OplusAlarmAdjustment）基本不接管/不推迟；失败再退精确/普通。
+     */
     private fun armAt(am: AlarmManager, pi: PendingIntent, at: Long) {
-        runCatching { am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pi) }
-            .onFailure { runCatching { am.set(AlarmManager.RTC_WAKEUP, at, pi) } }
+        runCatching { am.setAlarmClock(AlarmManager.AlarmClockInfo(at, null), pi) }
+            .onFailure {
+                runCatching { am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pi) }
+                    .onFailure { runCatching { am.set(AlarmManager.RTC_WAKEUP, at, pi) } }
+            }
     }
 
     private fun armGrid(context: Context, am: AlarmManager, base: Int, fromMillis: Long, endMillis: Long) {
