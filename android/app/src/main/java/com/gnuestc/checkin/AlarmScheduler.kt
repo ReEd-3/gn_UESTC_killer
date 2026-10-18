@@ -144,7 +144,7 @@ object AlarmScheduler {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-    /** 下一次每日触发：今天的窗口开始时间（默认 21:05），已过则明天 */
+    /** 下一次每日触发：今天的窗口开始时间（默认 21:05），已过或今天已完成则明天 */
     private fun nextDailyTrigger(context: Context): Long {
         val target = Calendar.getInstance().apply {
             val m = Prefs.getWindowStartMinute(context)
@@ -153,7 +153,12 @@ object AlarmScheduler {
             set(Calendar.SECOND, 0)
             set(Calendar.MILLISECOND, 0)
         }
-        if (target.timeInMillis <= System.currentTimeMillis()) target.add(Calendar.DAY_OF_YEAR, 1)
+        // [修复 2026-10-18] 今天已完成打卡时，下一次永远排明天：
+        // 原实现只比较"开始时间是否已过"——若打卡成功发生在窗口开始之前（如手动测试提前成功），
+        // 会选出"今天稍后的开始时间"，导致成功后又被安排一次无意义的打卡任务
+        if (target.timeInMillis <= System.currentTimeMillis() || Prefs.isCheckedToday(context)) {
+            target.add(Calendar.DAY_OF_YEAR, 1)
+        }
         return target.timeInMillis
     }
 

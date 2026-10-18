@@ -1010,6 +1010,8 @@ class MainActivity : AppCompatActivity() {
             Prefs.setEngineActivatedVersion(this, info.installedVersionCode)
             LogStore.append(this, "[引擎] 后台组件已就绪（v${info.installedVersionCode}），已完成初始化")
             Toast.makeText(this, R.string.engine_activated, Toast.LENGTH_SHORT).show()
+            // [双包 2026-10-18] 自动 ping：立即给一个"引擎已接通"的可视信号（引擎会回一条通知）
+            EngineBridge.sendCommand(this, "ping")
         }
     }
 }
