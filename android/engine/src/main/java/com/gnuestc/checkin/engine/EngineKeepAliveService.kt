@@ -75,10 +75,15 @@ class EngineKeepAliveService : Service() {
 
         private fun buildNotification(context: Context): Notification {
             // 点击常驻通知 → 打开主应用
+            // [修复 2026-10-18] 原实现的兜底是"空 Intent"，点击无任何反应；
+            // 改为显式组件兜底（并加 NEW_TASK），不依赖包可见性查询结果
+            val openIntent = context.packageManager.getLaunchIntentForPackage(MAIN_PACKAGE)
+                ?: Intent().setClassName(MAIN_PACKAGE, "$MAIN_PACKAGE.MainActivity")
+            openIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             val openApp = PendingIntent.getActivity(
                 context,
                 0,
-                context.packageManager.getLaunchIntentForPackage(MAIN_PACKAGE) ?: Intent(),
+                openIntent,
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
             val next = EnginePrefs.getNextText(context)

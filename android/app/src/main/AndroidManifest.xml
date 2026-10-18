@@ -16,6 +16,11 @@
     <!-- 控制引擎的签名级权限（仅同一签名的主应用可发送指令） -->
     <uses-permission android:name="com.gnuestc.checkin.permission.CONTROL_ENGINE" />
 
+    <!-- [修复 2026-10-18] 包可见性：允许主应用查询「后台组件（引擎）」（否则 Android 11+ 上 getPackageInfo 查不到） -->
+    <queries>
+        <package android:name="com.gnuestc.checkin.engine" />
+    </queries>
+
     <application
         android:allowBackup="false"
         android:icon="@mipmap/ic_launcher"

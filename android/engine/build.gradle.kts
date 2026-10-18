@@ -15,9 +15,9 @@ android {
         applicationId = "com.gnuestc.checkin.engine"
         minSdk = 26
         targetSdk = 35
-        // [双包 2026-10-18] v2：常驻服务移入引擎、sync 指令、激活自检（v1→v2 触发主应用更新提示）
-        versionCode = 2
-        versionName = "0.2"
+        // [双包 2026-10-18] v3：包可见性 + 常驻通知点击打开主应用修复（v2→v3 触发主应用更新提示）
+        versionCode = 3
+        versionName = "0.3"
     }
 
     buildTypes {
