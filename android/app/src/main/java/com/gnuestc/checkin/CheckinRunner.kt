@@ -53,8 +53,15 @@ object CheckinRunner {
                             }
                         }
                         4006 -> {
-                            Prefs.markCheckedToday(context)
-                            "今日已完成打卡（服务端判定）"
+                            // [修复 2026-10-18] 4006 同样不可信：实测白天一次"假成功"提交后，
+                            // 再次提交会回 4006（重复判定），但服务端并未生成打卡记录（/today 仍 PENDING）。
+                            // 因此必须先复查，只有确认 CHECKED_IN 才算已完成。
+                            if (verifyCheckedIn(api)) {
+                                Prefs.markCheckedToday(context)
+                                "今日已完成打卡（服务端判定）"
+                            } else {
+                                "打卡未生效：服务端判定重复但未记录，将继续重试"
+                            }
                         }
                         else -> "打卡失败：${resp.optString("msg")}"
                     }
@@ -74,14 +81,14 @@ object CheckinRunner {
         return result
     }
 
-    /** [修复 2026-10-18] 提交后复查今日状态，确认服务端真的记录了打卡（最多查 3 次） */
+    /** [修复 2026-10-18] 提交后复查今日状态，确认服务端真的记录了打卡（最多查 4 次，间隔 2 秒） */
     private fun verifyCheckedIn(api: CheckinApi): Boolean {
-        repeat(3) { attempt ->
+        repeat(4) { attempt ->
             val ok = runCatching {
                 api.getToday().optJSONObject("data")?.optString("recordStatusCode") == "CHECKED_IN"
             }.getOrDefault(false)
             if (ok) return true
-            if (attempt < 2) Thread.sleep(1500)
+            if (attempt < 3) Thread.sleep(2000)
         }
         return false
     }

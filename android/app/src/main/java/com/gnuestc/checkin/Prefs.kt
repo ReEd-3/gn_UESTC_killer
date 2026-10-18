@@ -183,6 +183,9 @@ object Prefs {
     fun isCheckedToday(c: Context): Boolean =
         sp(c).getString(KEY_CHECKED_DATE, null) == LocalDate.now().toString()
 
+    /** [修复 2026-10-18] 清除"今日已完成"标记（本地标记与服务器对账后发现误报时使用） */
+    fun clearCheckedToday(c: Context) = sp(c).edit().remove(KEY_CHECKED_DATE).apply()
+
     /** 首次打开的使用须知是否已展示并确认过 */
     fun setFirstRunGuideShown(c: Context, shown: Boolean) =
         sp(c).edit().putBoolean(KEY_FIRST_RUN_GUIDE, shown).apply()

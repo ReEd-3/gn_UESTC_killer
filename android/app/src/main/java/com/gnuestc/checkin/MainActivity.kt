@@ -226,6 +226,8 @@ class MainActivity : AppCompatActivity() {
         refreshStatus()
         // [修复 2026-10-17] 窗口内打开应用 → 立即前台补打（替代此前"排 1 分钟后等闹钟"的做法）
         maybeRunForegroundCatchUp()
+        // [修复 2026-10-18] 本地"今日已完成"标记与服务器对账（清除误报残留）
+        reconcileCheckedState()
     }
 
     /** 刷新所有状态展示 */
@@ -487,6 +489,37 @@ class MainActivity : AppCompatActivity() {
             binding.progressBusy.visibility = View.GONE
             Toast.makeText(this@MainActivity, result, Toast.LENGTH_SHORT).show()
             refreshStatus()
+        }
+    }
+
+    /**
+     * [修复 2026-10-18] 本地标记对账：本地认为"今天已完成"，但服务器 /today 明确显示未打卡时，
+     * 说明此前的"成功"是误报（如服务端回执异常却未真正记录），清除标记并恢复打卡任务。
+     * 查询失败（网络问题）时保守不动，避免误清。
+     */
+    private fun reconcileCheckedState() {
+        if (!Prefs.isCheckedToday(this)) return
+        val cookie = Prefs.getCookie(this)
+        if (cookie.isBlank()) return
+        lifecycleScope.launch {
+            val actuallyChecked = withContext(Dispatchers.IO) {
+                runCatching {
+                    CheckinApi(cookie).getToday()
+                        .optJSONObject("data")?.optString("recordStatusCode") == "CHECKED_IN"
+                }.getOrNull()
+            }
+            // 只有明确查询成功且为"未打卡"才清除（null = 查询失败，保持不动）
+            if (actuallyChecked == false) {
+                Prefs.clearCheckedToday(this@MainActivity)
+                Prefs.setLastResult(this@MainActivity, "此前打卡未生效，已恢复自动打卡")
+                LogStore.append(
+                    this@MainActivity,
+                    "[系统] 检测到此前打卡未生效（服务端无记录），已清除标记并恢复任务"
+                )
+                AlarmScheduler.ensureScheduled(this@MainActivity)
+                refreshStatus()
+                maybeRunForegroundCatchUp()
+            }
         }
     }
 
