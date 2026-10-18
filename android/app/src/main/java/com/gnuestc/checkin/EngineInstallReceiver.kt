@@ -21,6 +21,7 @@ class EngineInstallReceiver : BroadcastReceiver() {
         when (status) {
             PackageInstaller.STATUS_PENDING_USER_ACTION -> {
                 // 需要用户确认：拉起系统安装确认界面（PendingIntent 回调自带后台启动豁免）
+                LogStore.append(context, "[引擎] 安装会话等待用户确认，拉起系统确认界面")
                 @Suppress("DEPRECATION")
                 val confirm = intent.getParcelableExtra<Intent>(Intent.EXTRA_INTENT)
                 if (confirm != null) {

@@ -61,6 +61,9 @@ class MainActivity : AppCompatActivity() {
     private var pendingUnknownSources = false
     // [修复 2026-10-18] 已发起引擎安装、待回前台校验结果（防止"安装没生效却无提示"）
     private var awaitingEngineInstall = false
+    // [修复 2026-10-18] "卸载后重装"流程标记：卸载完成后自动重装内嵌 v5（修复签名冲突等场景）
+    private var pendingEngineReinstall = false
+    private var reinstallRequestedAt = 0L
 
     /** 地图选点返回结果 */
     private val mapPicker =
@@ -952,7 +955,8 @@ class MainActivity : AppCompatActivity() {
         val items = arrayOf(
             getString(R.string.engine_install),
             getString(R.string.engine_test_alarm),
-            getString(R.string.engine_ping)
+            getString(R.string.engine_ping),
+            getString(R.string.engine_reinstall)
         )
         MaterialAlertDialogBuilder(this)
             .setTitle(getString(R.string.engine_menu_title, status))
@@ -972,6 +976,7 @@ class MainActivity : AppCompatActivity() {
                         Toast.makeText(this, R.string.engine_sent_ping, Toast.LENGTH_SHORT).show()
                         LogStore.append(this, "[引擎] 已发送连通测试")
                     }
+                    3 -> reinstallEngineFlow()
                 }
             }
             .setPositiveButton(R.string.about_ok, null)
@@ -993,6 +998,30 @@ class MainActivity : AppCompatActivity() {
         if (EngineBridge.installOrUpdate(this)) {
             awaitingEngineInstall = true // [修复 2026-10-18] 回到前台时校验是否真的安装成功
             LogStore.append(this, "[引擎] 已拉起后台组件安装（请在系统弹窗中确认）")
+        } else {
+            Toast.makeText(this, R.string.engine_install_failed, Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    /**
+     * [修复 2026-10-18] 卸载后重装：用于"更新一直装不上/签名冲突"的修复场景。
+     * 卸载完成后回到应用会自动重新安装内嵌的 v5。
+     */
+    private fun reinstallEngineFlow() {
+        val info = EngineBridge.query(this)
+        if (!info.installed) {
+            installEngineFlow()
+            return
+        }
+        val ok = runCatching {
+            startActivity(
+                Intent(Intent.ACTION_DELETE, Uri.parse("package:${EngineBridge.ENGINE_PACKAGE}"))
+            )
+        }.isSuccess
+        if (ok) {
+            pendingEngineReinstall = true
+            reinstallRequestedAt = System.currentTimeMillis()
+            LogStore.append(this, "[引擎] 已拉起卸载界面（确认卸载后将自动重装内嵌 v5）")
         } else {
             Toast.makeText(this, R.string.engine_install_failed, Toast.LENGTH_SHORT).show()
         }
@@ -1032,6 +1061,19 @@ class MainActivity : AppCompatActivity() {
                     this,
                     "[引擎] 警告：更新未生效（当前 $cur，目标 v${info.bundledVersionCode}）"
                 )
+            }
+        }
+        // [修复 2026-10-18] "卸载后重装"：旧组件已卸载 → 自动重装内嵌 v5
+        if (pendingEngineReinstall) {
+            if (!info.installed) {
+                pendingEngineReinstall = false
+                LogStore.append(this, "[引擎] 旧组件已卸载，开始重新安装内嵌 v5")
+                installEngineFlow()
+                return
+            }
+            // 60 秒内继续等待卸载完成；超时视为用户取消了卸载
+            if (System.currentTimeMillis() - reinstallRequestedAt > 60_000L) {
+                pendingEngineReinstall = false
             }
         }
         if (!info.installed) return

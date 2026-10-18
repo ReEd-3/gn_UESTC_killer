@@ -104,6 +104,7 @@
     <string name="engine_activated">后台组件已就绪</string>
     <string name="engine_update_ok">后台组件已更新到 v%1$d</string>
     <string name="engine_update_not_applied">后台组件更新未生效（当前 %1$s，目标 v%2$d），请在系统安装器中确认</string>
+    <string name="engine_reinstall">卸载后重新安装（修复用）</string>
     <string name="first_run_title">重要！！！使用须知！！！</string>
     <string name="first_run_content">· 写在最前面\n出于某些因素考虑，本应用源码暂不开源，并且希望同学们不要在公共平台宣传本应用。\n如果是出于技术交流的目的，可以在应用底部的介绍中找到作者联系方式联系作者索要源码。\n\n「晚安成电killer」可以帮你自动完成「晚安成电」每日打卡：一次登录后，每天到点自动打卡，无需保持应用打开。\n\n· 应用的详细介绍：点击应用底部的「!」按钮查看。\n· 本应用为非官方个人学习项目，与学校无任何关联，请遵守学校相关规定。\n· 使用本应用产生的任何后果由使用者自行承担。\n· 因第三方恶意程序攻击、设备系统被攻破等非本应用可控原因导致的安全问题，开发者不承担责任。\n· 登录会话仅保存在本机并已加密；应用不收集、不上传任何个人信息。</string>
     <string name="first_run_ok">我知道了</string>

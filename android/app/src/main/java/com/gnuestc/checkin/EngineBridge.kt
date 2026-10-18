@@ -152,23 +152,28 @@ object EngineBridge {
         val installer = context.packageManager.packageInstaller
         val params = PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL)
         val sessionId = installer.createSession(params)
-        installer.openSession(sessionId).use { session ->
-            apk.inputStream().use { input ->
-                session.openWrite("engine.apk", 0, apk.length()).use { out ->
-                    input.copyTo(out)
-                    session.fsync(out)
+        try {
+            installer.openSession(sessionId).use { session ->
+                apk.inputStream().use { input ->
+                    session.openWrite("engine.apk", 0, apk.length()).use { out ->
+                        input.copyTo(out)
+                        session.fsync(out)
+                    }
                 }
+                val resultIntent = Intent(context, EngineInstallReceiver::class.java)
+                // [修复 2026-10-18] Android 14+ 要求 commit 的状态接收器必须是"可变"PendingIntent，
+                // 否则抛 IllegalArgumentException（此前"会话安装不可用"的根因，会静默回退到无回执的老方式）
+                val flags = PendingIntent.FLAG_UPDATE_CURRENT or
+                    (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) PendingIntent.FLAG_MUTABLE else 0)
+                val pi = PendingIntent.getBroadcast(context, sessionId, resultIntent, flags)
+                session.commit(pi.intentSender)
             }
-            val resultIntent = Intent(context, EngineInstallReceiver::class.java)
-            val pi = PendingIntent.getBroadcast(
-                context,
-                sessionId,
-                resultIntent,
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-            )
-            session.commit(pi.intentSender)
+            return true
+        } catch (t: Throwable) {
+            // 会话提交失败：作废会话，避免残留
+            runCatching { installer.abandonSession(sessionId) }
+            throw t
         }
-        return true
     }
 
     /** 回退方案：ACTION_VIEW 拉起系统安装器 */
