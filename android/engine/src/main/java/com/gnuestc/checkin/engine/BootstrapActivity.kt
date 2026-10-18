@@ -3,6 +3,7 @@ package com.gnuestc.checkin.engine
 import android.Manifest
 import android.app.Activity
 import android.app.AlarmManager
+import android.content.ComponentName
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
@@ -96,32 +97,62 @@ class BootstrapActivity : Activity() {
     }
 
     /**
-     * [v6] 电池优化自检：未豁免时引导一次。
-     * 重装组件后系统会重置该设置；若被系统冻结/限制，定时任务可能不触发。
+     * [v6/v10] 电池优化自检：未豁免时引导一次（重装组件后系统会重置该设置）。
+     * ColorOS 说明：系统"一键允许"页只能改系统名单；OPPO 自己的冻结机制还看"应用耗电管理"，
+     * 因此额外提供「打开耗电设置」直达该页；引导过一次后不再反复打扰（重装数据自然重置）。
      */
     private fun maybeCheckBattery() {
         val pm = getSystemService(POWER_SERVICE) as PowerManager
-        if (!pm.isIgnoringBatteryOptimizations(packageName)) {
-            askedBatteryOptimization = true
-            android.app.AlertDialog.Builder(this)
-                .setTitle("后台组件：建议允许后台运行")
-                .setMessage("防止系统在后台冻结/限制本组件（会影响定时打卡），建议在电池设置中允许其后台运行。")
-                .setPositiveButton("去设置") { _, _ ->
-                    runCatching {
-                        startActivity(
-                            Intent(
-                                Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
-                                Uri.parse("package:$packageName")
-                            )
-                        )
-                    }
-                    finish()
-                }
-                .setNegativeButton("暂不") { _, _ -> finish() }
-                .setOnCancelListener { finish() }
-                .show()
+        if (pm.isIgnoringBatteryOptimizations(packageName) || EnginePrefs.isBatteryPromptDone(this)) {
+            finish()
             return
         }
-        finish()
+        android.app.AlertDialog.Builder(this)
+            .setTitle("后台组件：请允许后台运行")
+            .setMessage(
+                "为保证熄屏后定时打卡不被系统冻结：\n" +
+                    "· 优先点「一键允许」，并在系统弹窗中点“允许”；\n" +
+                    "· 若系统仍限制（如 ColorOS），请点「打开耗电设置」，选择“允许完全后台行为”。"
+            )
+            .setPositiveButton("一键允许") { _, _ ->
+                EnginePrefs.setBatteryPromptDone(this, true)
+                runCatching {
+                    startActivity(
+                        Intent(
+                            Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
+                            Uri.parse("package:$packageName")
+                        )
+                    )
+                }
+                finish()
+            }
+            .setNeutralButton("打开耗电设置") { _, _ ->
+                EnginePrefs.setBatteryPromptDone(this, true)
+                openVendorPowerDetail()
+                finish()
+            }
+            .setNegativeButton("暂不") { _, _ -> finish() }
+            .setOnCancelListener { finish() }
+            .show()
+    }
+
+    /** [v10] 打开厂商(OPPO/ColorOS)的「应用耗电管理」详情页；不可用时退回系统电池优化列表 */
+    private fun openVendorPowerDetail() {
+        val opened = runCatching {
+            startActivity(
+                Intent().apply {
+                    component = ComponentName(
+                        "com.oplus.battery",
+                        "com.oplus.powermanager.fuelgaue.PowerUsageModelActivity"
+                    )
+                    putExtra("pkg_name", packageName)
+                }
+            )
+        }.isSuccess
+        if (!opened) {
+            runCatching {
+                startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
+            }
+        }
     }
 }

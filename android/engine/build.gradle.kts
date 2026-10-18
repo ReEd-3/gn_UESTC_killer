@@ -15,9 +15,9 @@ android {
         applicationId = "com.gnuestc.checkin.engine"
         minSdk = 26
         targetSdk = 35
-        // [双包 2026-10-18] v9：修复激活引导“对话框被秒关”问题；测试闹钟新增“存活心跳”每秒跳字
-        versionCode = 9
-        versionName = "0.9"
+        // [双包 2026-10-19] v10：电池引导升级（一键允许 + 直达 ColorOS「应用耗电管理」页；引导一次后不再打扰）
+        versionCode = 10
+        versionName = "0.10"
     }
 
     buildTypes {
