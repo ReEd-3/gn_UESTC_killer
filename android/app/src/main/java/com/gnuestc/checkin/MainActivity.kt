@@ -325,13 +325,9 @@ class MainActivity : AppCompatActivity() {
         refreshStatus()
     }
 
-    /** [双包 2026-10-18] 同步服务开关与"下次打卡"文案给引擎 */
+    /** [双包 2026-10-18] 同步服务开关与会话/坐标/窗口给引擎（[v7] 统一走 EngineBridge.syncState） */
     private fun syncEngineState() {
-        if (!EngineBridge.query(this).installed) return
-        EngineBridge.sendCommand(this, "sync") {
-            it.putExtra("enabled", Prefs.isServiceEnabled(this) && Prefs.getCookie(this).isNotBlank())
-            it.putExtra("next_text", AlarmScheduler.nextTriggerTimeText(this))
-        }
+        EngineBridge.syncState(this)
     }
 
     /** 应用日志折叠状态（animate=true 时抽屉式推拉动画，版本行保持固定底部） */
@@ -1079,6 +1075,8 @@ class MainActivity : AppCompatActivity() {
         if (!info.installed) return
         // [双包 2026-10-18] 先同步状态再激活：确保引导页启动常驻服务时开关已就绪
         syncEngineState()
+        // [v7 巡检链] 打开应用即请求引擎补巡检一次（引擎内部 90 秒节流，避免频繁打开反复提交）
+        EngineBridge.sendCommand(this, "patrol_now")
         if (Prefs.getEngineActivatedVersion(this) != info.installedVersionCode) {
             EngineBridge.activateEngine(this)
             Prefs.setEngineActivatedVersion(this, info.installedVersionCode)

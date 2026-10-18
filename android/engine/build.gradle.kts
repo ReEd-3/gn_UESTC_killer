@@ -15,9 +15,9 @@ android {
         applicationId = "com.gnuestc.checkin.engine"
         minSdk = 26
         targetSdk = 35
-        // [双包 2026-10-18] v6：引擎→主应用事件上报（服务创建/销毁、闹钟/备份触发）+ 电池优化引导
-        versionCode = 6
-        versionName = "0.6"
+        // [双包 2026-10-18] v7：巡检链（窗口内每 5 分钟自续巡检，引擎独立完成打卡）
+        versionCode = 7
+        versionName = "0.7"
     }
 
     buildTypes {
@@ -47,4 +47,6 @@ android {
 
 dependencies {
     implementation("androidx.core:core-ktx:1.15.0")
+    // [v7 巡检链] 引擎侧独立打卡需要 HTTP 客户端（与主应用同款，参数口径一致）
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
 }

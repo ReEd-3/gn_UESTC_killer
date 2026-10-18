@@ -47,17 +47,45 @@ class EngineReceiver : BroadcastReceiver() {
                 // [v6] 事件上报：让主应用日志也能看到引擎受理情况
                 EngineEvents.send(context, EngineEvents.EVENT_TEST_SCHEDULED, "$mode · $backupText")
             }
-            // [双包 2026-10-18] 主应用同步常驻状态：开关 + 下次打卡时间
+            // [双包 2026-10-18] 主应用同步状态：开关 + 下次打卡时间
+            // [v7 巡检链] 扩展：会话/坐标/打卡窗口一并同步，引擎据此具备独立打卡能力
             "sync" -> {
                 val enabled = intent.getBooleanExtra(EXTRA_ENABLED, false)
                 val nextText = intent.getStringExtra(EXTRA_NEXT_TEXT).orEmpty()
                 EnginePrefs.setKeepAliveEnabled(context, enabled)
                 EnginePrefs.setNextText(context, nextText)
+                intent.getStringExtra(EXTRA_COOKIE)?.let { EnginePrefs.setCookie(context, it) }
+                if (intent.hasExtra(EXTRA_LAT)) {
+                    EnginePrefs.setLat(context, intent.getDoubleExtra(EXTRA_LAT, EnginePrefs.getLat(context)))
+                }
+                if (intent.hasExtra(EXTRA_LNG)) {
+                    EnginePrefs.setLng(context, intent.getDoubleExtra(EXTRA_LNG, EnginePrefs.getLng(context)))
+                }
+                if (intent.hasExtra(EXTRA_WIN_START)) {
+                    EnginePrefs.setWinStart(context, intent.getIntExtra(EXTRA_WIN_START, EnginePrefs.getWinStart(context)))
+                }
+                if (intent.hasExtra(EXTRA_WIN_END)) {
+                    EnginePrefs.setWinEnd(context, intent.getIntExtra(EXTRA_WIN_END, EnginePrefs.getWinEnd(context)))
+                }
                 if (enabled) {
                     EngineKeepAliveService.start(context)
+                    // [v7] 安排巡检链（窗口内每 5 分钟一个巡检点，链式自续）
+                    EnginePatrol.scheduleNext(context)
                 } else {
                     EngineKeepAliveService.stop(context)
+                    EnginePatrol.cancel(context)
                 }
+            }
+            // [v7 巡检链] 主应用回到前台时的立即补巡检（90 秒节流在引擎侧）
+            "patrol_now" -> {
+                val pending = goAsync()
+                Thread {
+                    try {
+                        EnginePatrol.executeNow(context)
+                    } finally {
+                        runCatching { pending.finish() }
+                    }
+                }.start()
             }
         }
     }
@@ -107,6 +135,12 @@ class EngineReceiver : BroadcastReceiver() {
         const val EXTRA_MINUTES = "minutes"
         const val EXTRA_ENABLED = "enabled"
         const val EXTRA_NEXT_TEXT = "next_text"
+        // [v7 巡检链] 打卡执行所需参数的同步字段
+        const val EXTRA_COOKIE = "cookie"
+        const val EXTRA_LAT = "lat"
+        const val EXTRA_LNG = "lng"
+        const val EXTRA_WIN_START = "win_start"
+        const val EXTRA_WIN_END = "win_end"
         private const val CHANNEL_ID = "engine_status"
         private const val NOTIFY_PING = 3001
         private const val NOTIFY_SCHEDULED = 3002

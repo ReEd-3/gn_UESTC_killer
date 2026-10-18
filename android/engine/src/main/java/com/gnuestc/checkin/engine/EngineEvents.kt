@@ -16,6 +16,9 @@ object EngineEvents {
     const val EVENT_SERVICE_DESTROYED = "service_destroyed"
     const val EVENT_ALARM_FIRED = "alarm_fired"
     const val EVENT_BACKUP_FIRED = "backup_fired"
+    // [v7 巡检链] 引擎独立打卡结果
+    const val EVENT_CHECKIN_SUCCESS = "checkin_success"
+    const val EVENT_CHECKIN_FAILED = "checkin_failed"
 
     fun send(context: Context, event: String, detail: String = "") {
         runCatching {

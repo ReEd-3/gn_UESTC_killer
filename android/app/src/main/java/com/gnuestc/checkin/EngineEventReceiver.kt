@@ -26,6 +26,12 @@ class EngineEventReceiver : BroadcastReceiver() {
             "service_destroyed" -> "[引擎] ⚠ 常驻服务被系统停止（$fmt）"
             "alarm_fired" -> "[引擎] 系统闹钟已触发（$fmt）"
             "backup_fired" -> "[引擎] 常驻备份已触发（$fmt）"
+            // [v7 巡检链] 引擎独立打卡结果 → 同步主应用状态
+            "checkin_success" -> {
+                Prefs.markCheckedToday(context)
+                "[引擎] 后台巡检打卡成功（$fmt）"
+            }
+            "checkin_failed" -> "[引擎] 打卡未成功：$detail（$fmt）→ 将继续自动重试"
             else -> return
         }
         LogStore.append(context, text)

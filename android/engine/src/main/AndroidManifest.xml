@@ -55,6 +55,12 @@
             android:name=".EngineAlarmReceiver"
             android:exported="false" />
 
+        <!-- [v7 巡检链] 巡检点接收器（仅引擎内部 PendingIntent 可达）；
+             窗口内每 5 分钟一环、链式自续：任何一次被系统放行即可完成打卡 -->
+        <receiver
+            android:name=".EnginePatrolReceiver"
+            android:exported="false" />
+
         <!-- [双包 2026-10-18] 引擎自己的常驻前台服务：
              放在引擎里才有意义——主应用被划掉不影响它 -->
         <service
