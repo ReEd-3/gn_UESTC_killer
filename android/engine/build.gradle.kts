@@ -15,9 +15,9 @@ android {
         applicationId = "com.gnuestc.checkin.engine"
         minSdk = 26
         targetSdk = 35
-        // [双包 2026-10-18] v8：巡检链升级为“锚点 + 双日网格”（多点冗余、自愈）+ 巡检自动复活常驻服务
-        versionCode = 8
-        versionName = "0.8"
+        // [双包 2026-10-18] v9：修复激活引导“对话框被秒关”问题；测试闹钟新增“存活心跳”每秒跳字
+        versionCode = 9
+        versionName = "0.9"
     }
 
     buildTypes {

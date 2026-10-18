@@ -57,11 +57,14 @@ class BootstrapActivity : Activity() {
         maybeCheckExactAlarm()
     }
 
-    override fun onResume() {
-        super.onResume()
-        // 从系统设置页（精确闹钟 / 电池优化）返回后结束
-        if (askedAlarmPermission || askedBatteryOptimization) finish()
-    }
+    // [修复 v9] 原 onResume 兜底会在"首次 onResume"就把刚弹出的对话框秒关
+    // （onCreate 同步链里已设置标志位，紧接着的第一次 onResume 立即 finish）；
+    // 且 noHistory=true 已能保证"跳系统设置页后返回时活动自动结束"，此兜底已无必要：
+    // override fun onResume() {
+    //     super.onResume()
+    //     // 从系统设置页（精确闹钟 / 电池优化）返回后结束
+    //     if (askedAlarmPermission || askedBatteryOptimization) finish()
+    // }
 
     /** 精确闹钟权限自检（缺失时给出说明入口） */
     private fun maybeCheckExactAlarm() {

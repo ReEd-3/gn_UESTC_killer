@@ -1,5 +1,6 @@
 package com.gnuestc.checkin.engine
 
+import android.Manifest
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -7,6 +8,7 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.Handler
@@ -14,6 +16,9 @@ import android.os.IBinder
 import android.os.Looper
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 /**
  * [双包 2026-10-18] 引擎自己的常驻前台服务：把"打卡引擎"亮在系统面前——
@@ -28,6 +33,58 @@ class EngineKeepAliveService : Service() {
     /** [v5] 常驻备份定时器用的主线程 Handler（进程存活期间有效） */
     private val mainHandler = Handler(Looper.getMainLooper())
 
+    /** [v9] 测试闹钟"存活心跳"任务（每秒刷新一次"已安排"通知） */
+    private var tickerRunnable: Runnable? = null
+
+    /** [v9] 开始存活心跳：秒数在跳=引擎活着；被系统冻结=秒数停跳（一眼可辨） */
+    private fun startTickerInternal(triggerAt: Long, detail: String) {
+        stopTickerInternal()
+        val r = object : Runnable {
+            override fun run() {
+                val left = triggerAt - System.currentTimeMillis()
+                if (left <= 0) {
+                    stopTickerInternal()
+                    return
+                }
+                runCatching { updateScheduledNotification(triggerAt, detail, left) }
+                mainHandler.postDelayed(this, 1000L)
+            }
+        }
+        tickerRunnable = r
+        mainHandler.post(r)
+    }
+
+    private fun stopTickerInternal() {
+        tickerRunnable?.let { mainHandler.removeCallbacks(it) }
+        tickerRunnable = null
+    }
+
+    /** [v9] 刷新"测试闹钟已安排"通知（与 EngineReceiver 同 ID/同频道，叠加跳动秒数） */
+    private fun updateScheduledNotification(triggerAt: Long, detail: String, leftMs: Long) {
+        val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            nm.createNotificationChannel(
+                NotificationChannel("engine_status", "引擎状态", NotificationManager.IMPORTANCE_DEFAULT)
+            )
+        }
+        if (Build.VERSION.SDK_INT >= 33 &&
+            ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) !=
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            return
+        }
+        val fmt = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
+        val text = "将于 ${fmt.format(Date(triggerAt))} 触发 · $detail · 剩 ${leftMs / 1000} 秒 · 心跳 ${fmt.format(Date())}"
+        val n = NotificationCompat.Builder(this, "engine_status")
+            .setSmallIcon(android.R.drawable.stat_notify_sync)
+            .setContentTitle("打卡引擎 · 测试闹钟已安排（心跳跳动中）")
+            .setContentText(text)
+            .setOnlyAlertOnce(true)
+            .setAutoCancel(true)
+            .build()
+        nm.notify(EngineReceiver.NOTIFY_SCHEDULED, n)
+    }
+
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onCreate() {
@@ -36,6 +93,9 @@ class EngineKeepAliveService : Service() {
         instance = this
         createChannel(this)
         EngineEvents.send(this, EngineEvents.EVENT_SERVICE_CREATED)
+        // [v9] 若在服务启动前就有测试闹钟等待心跳，补挂
+        val pt = pendingTickerAt
+        if (pt > System.currentTimeMillis()) startTickerInternal(pt, pendingTickerDetail)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -100,6 +160,7 @@ class EngineKeepAliveService : Service() {
             if (delay <= 0) return false
             svc.mainHandler.postDelayed({
                 EngineEvents.send(svc.applicationContext, EngineEvents.EVENT_BACKUP_FIRED, "常驻备份")
+                onTestAlarmFired(svc.applicationContext) // [v9] 备份通道触发：停心跳 + 撤下"已安排"通知
                 EngineAlarmReceiver.postFired(
                     svc.applicationContext,
                     EngineAlarmReceiver.NOTIFY_ID_BACKUP,
@@ -107,6 +168,30 @@ class EngineKeepAliveService : Service() {
                 )
             }, delay)
             return true
+        }
+
+        /** [v9] 待启动的心跳（服务未就绪时先记账，onCreate 时补挂） */
+        @Volatile
+        private var pendingTickerAt = 0L
+
+        @Volatile
+        private var pendingTickerDetail = ""
+
+        /** [v9] 开始"存活心跳"：每秒刷新"已安排"通知（被系统冻结则秒数停跳，一眼可辨） */
+        fun startTestTicker(context: Context, triggerAtMillis: Long, detail: String) {
+            pendingTickerAt = triggerAtMillis
+            pendingTickerDetail = detail
+            instance?.startTickerInternal(triggerAtMillis, detail)
+        }
+
+        /** [v9] 测试闹钟已触发：停心跳 + 撤下"已安排"通知 */
+        fun onTestAlarmFired(context: Context) {
+            pendingTickerAt = 0L
+            instance?.stopTickerInternal()
+            runCatching {
+                val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+                nm.cancel(EngineReceiver.NOTIFY_SCHEDULED)
+            }
         }
 
         private fun buildNotification(context: Context): Notification {

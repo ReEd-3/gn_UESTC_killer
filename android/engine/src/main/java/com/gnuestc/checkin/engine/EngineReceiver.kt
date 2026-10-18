@@ -46,6 +46,11 @@ class EngineReceiver : BroadcastReceiver() {
                 notify(context, NOTIFY_SCHEDULED, "测试闹钟已安排", "将于 $fmt 触发 · $mode · $backupText")
                 // [v6] 事件上报：让主应用日志也能看到引擎受理情况
                 EngineEvents.send(context, EngineEvents.EVENT_TEST_SCHEDULED, "$mode · $backupText")
+                // [v9] 存活心跳：每秒刷新"已安排"通知（秒数在跳=引擎活着；冻结=停跳）
+                if (EnginePrefs.isKeepAliveEnabled(context) && !EngineKeepAliveService.running) {
+                    EngineKeepAliveService.start(context)
+                }
+                EngineKeepAliveService.startTestTicker(context, at, "$mode · $backupText")
             }
             // [双包 2026-10-18] 主应用同步状态：开关 + 下次打卡时间
             // [v7 巡检链] 扩展：会话/坐标/打卡窗口一并同步，引擎据此具备独立打卡能力
@@ -143,6 +148,8 @@ class EngineReceiver : BroadcastReceiver() {
         const val EXTRA_WIN_END = "win_end"
         private const val CHANNEL_ID = "engine_status"
         private const val NOTIFY_PING = 3001
-        private const val NOTIFY_SCHEDULED = 3002
+
+        // [v9] 心跳刷新需要从服务侧复用同一通知位
+        const val NOTIFY_SCHEDULED = 3002
     }
 }

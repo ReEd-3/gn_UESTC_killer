@@ -23,6 +23,8 @@ class EngineAlarmReceiver : BroadcastReceiver() {
 
     override fun onReceive(context: Context, intent: Intent) {
         EngineEvents.send(context, EngineEvents.EVENT_ALARM_FIRED, "系统闹钟")
+        // [v9] 测试闹钟已触发：停掉存活心跳 + 撤下"已安排"通知
+        EngineKeepAliveService.onTestAlarmFired(context)
         postFired(context, NOTIFY_ID, "系统闹钟")
     }
 
