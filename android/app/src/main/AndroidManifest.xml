@@ -74,12 +74,14 @@
             android:exported="true"
             android:permission="com.gnuestc.checkin.permission.CONTROL_ENGINE" />
 
-        <!-- 开机重建闹钟；BOOT_COMPLETED 是受保护广播，只有系统能发出 -->
+        <!-- 开机/应用更新后重建闹钟；BOOT_COMPLETED 是受保护广播，只有系统能发出；
+             [修复 2026-10-19] 增加 MY_PACKAGE_REPLACED：主应用升级会清空系统闹钟，需立即重建 -->
         <receiver
             android:name=".BootReceiver"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
             </intent-filter>
         </receiver>
 

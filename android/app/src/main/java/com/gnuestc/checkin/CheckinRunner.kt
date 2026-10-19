@@ -10,6 +10,11 @@ import android.content.Context
  */
 object CheckinRunner {
 
+    /** [修复 2026-10-19] 视为"今日已完成、无需再打卡"的服务端状态白名单；其余未知状态将继续重试 */
+    private val DONE_STATUSES = setOf(
+        "INSTRUCTOR_REPORTED", "STUDENT_REPORTED", "REPORTED", "EXPIRED", "CLOSED"
+    )
+
     /** 关键路径：查询今日状态 → 必要时立即打卡；返回结果文案 */
     fun run(context: Context): String {
         val cookie = Prefs.getCookie(context)
@@ -66,11 +71,13 @@ object CheckinRunner {
                         else -> "打卡失败：${resp.optString("msg")}"
                     }
                 }
-                // INSTRUCTOR_REPORTED / STUDENT_REPORTED 等情况不主动打卡，避免覆盖已有登记
-                else -> {
+                // [修复 2026-10-19] 仅"明确的已完成类状态"视为终态；未知状态不再标记完成（继续按窗口重试），
+                // 避免服务端出现新状态（如驳回/需补报）时当天被误判为"已完成"而不再尝试
+                status in DONE_STATUSES -> {
                     Prefs.markCheckedToday(context)
                     "当前状态 $status，跳过打卡"
                 }
+                else -> "未知状态 $status，将继续重试"
             }
         } catch (e: Exception) {
             // 会话失效时接口会返回登录页 HTML，JSON 解析失败也走这里
@@ -128,6 +135,8 @@ object CheckinRunner {
         result.contains("登录无效") || result.contains("已过期") || result.contains("未登录") ->
             "登录已过期，请重新登录"
         result.contains("判定重复") -> "打卡未成功（重复提交），稍后自动重试"
+        // [修复 2026-10-19] 服务端未知状态：按"稍后重试"展示，避免把内部状态码直接抛给用户
+        result.contains("未知状态") -> "打卡未成功，稍后自动重试"
         result.contains("未生效") -> "打卡未成功：服务端未记录，稍后自动重试"
         result.contains("失败") || result.contains("异常") -> "打卡失败，稍后自动重试"
         result.contains("跳过") -> "今日无需打卡"

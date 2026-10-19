@@ -234,6 +234,9 @@ object EngineBridge {
             it.putExtra("lng", Prefs.getLocationLng(context))
             it.putExtra("win_start", Prefs.getWindowStartMinute(context))
             it.putExtra("win_end", Prefs.getWindowEndMinute(context))
+            // [修复 2026-10-19] 今日已完成标记：引擎收到后立即撤掉今日巡检，
+            // 避免主应用已打卡成功时引擎还要多跑一次巡检、多发一条"打卡成功"通知
+            it.putExtra("checked", Prefs.isCheckedToday(context))
         }
     }
 }

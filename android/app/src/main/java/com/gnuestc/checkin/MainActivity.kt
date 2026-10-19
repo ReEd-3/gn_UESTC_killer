@@ -55,6 +55,9 @@ class MainActivity : AppCompatActivity() {
     // [修复 2026-10-17] 打开应用时「前台自动补打」的运行标记与节流时间
     private var catchUpRunning = false
     private var lastCatchUpAt = 0L
+    // [修复 2026-10-19] 打开应用时的服务端状态探测（节流 + 会话失效只提示一次）
+    private var lastProbeAt = 0L
+    private var sessionInvalidPrompted = false
     private var pendingGpsRequest = false
     private val reqLocationCode = 1001
     // [双包 2026-10-18] 安装流程续接标记：先去授权"安装未知应用"，返回后自动继续安装
@@ -245,8 +248,11 @@ class MainActivity : AppCompatActivity() {
         refreshStatus()
         // [修复 2026-10-17] 窗口内打开应用 → 立即前台补打（替代此前"排 1 分钟后等闹钟"的做法）
         maybeRunForegroundCatchUp()
-        // [修复 2026-10-18] 本地"今日已完成"标记与服务器对账（清除误报残留）
-        reconcileCheckedState()
+        // [修复 2026-10-19] 本地"今日已完成"标记与服务器对账 → 升级为双向的"服务端状态探测"：
+        // 顺带提前发现会话失效（别处登录/过期），不再等窗口内打卡尝试时才发现
+        // [旧入口保留备查]
+        // reconcileCheckedState()
+        probeServerState()
         // [双包 2026-10-18] 安装流程续接：授权返回后自动继续安装、安装完自动激活
         resumeEngineInstallFlow()
     }
@@ -528,6 +534,8 @@ class MainActivity : AppCompatActivity() {
      * [修复 2026-10-18] 本地标记对账：本地认为"今天已完成"，但服务器 /today 明确显示未打卡时，
      * 说明此前的"成功"是误报（如服务端回执异常却未真正记录），清除标记并恢复打卡任务。
      * 查询失败（网络问题）时保守不动，避免误清。
+     * [修复 2026-10-19] 已被 [probeServerState] 取代（增加"服务端已打卡→补记本地"与"会话失效提示"，
+     * 并修正了会话失效时被误判为"未打卡"的问题）；保留备查。
      */
     private fun reconcileCheckedState() {
         if (!Prefs.isCheckedToday(this)) return
@@ -535,13 +543,80 @@ class MainActivity : AppCompatActivity() {
         if (cookie.isBlank()) return
         lifecycleScope.launch {
             val actuallyChecked = withContext(Dispatchers.IO) {
-                runCatching {
-                    CheckinApi(cookie).getToday()
-                        .optJSONObject("data")?.optString("recordStatusCode") == "CHECKED_IN"
-                }.getOrNull()
+                // [修复 2026-10-19] 改用 parseTodayChecked：会话失效/响应异常时返回 null（不做判定），
+                // 此前会被误判为"未打卡"而清除本正确的标记
+                runCatching { parseTodayChecked(CheckinApi(cookie).getToday()) }.getOrNull()
             }
-            // 只有明确查询成功且为"未打卡"才清除（null = 查询失败，保持不动）
+            // 只有明确查询成功且为"未打卡"才清除（null = 查询失败/响应异常，保持不动）
             if (actuallyChecked == false) {
+                Prefs.clearCheckedToday(this@MainActivity)
+                Prefs.setLastResult(this@MainActivity, "此前打卡未生效，已恢复自动打卡")
+                LogStore.append(
+                    this@MainActivity,
+                    "[系统] 检测到此前打卡未生效（服务端无记录），已清除标记并恢复任务"
+                )
+                AlarmScheduler.ensureScheduled(this@MainActivity)
+                refreshStatus()
+                maybeRunForegroundCatchUp()
+            }
+        }
+    }
+
+    /**
+     * [修复 2026-10-19] 解析 /today 响应：
+     *  - 返回 true/false = 服务端明确给出是否已打卡；
+     *  - 返回 null = 无法判定（会话失效/响应异常；HTTP 成功后 code!=0 或带登录错误 msg 且无 data）。
+     * 网络失败请在调用侧通过 runCatching/判空处理，不要当作"未打卡"。
+     */
+    private fun parseTodayChecked(resp: org.json.JSONObject): Boolean? {
+        val data = resp.optJSONObject("data")
+        val msg = resp.optString("msg")
+        // 无 data 且 code!=0（或 msg 明确提示登录问题）→ 响应异常，不可据此判定
+        if (data == null && (resp.optInt("code", 0) != 0 || msg.contains("登录") || msg.contains("过期"))) {
+            return null
+        }
+        return data?.optString("recordStatusCode") == "CHECKED_IN"
+    }
+
+    /**
+     * [修复 2026-10-19] 打开应用时的服务端状态探测（取代 reconcileCheckedState）：
+     *  - 网络失败：不做任何判定（避免误伤）
+     *  - 响应异常/会话失效：提示一次重新登录（每会话一次）并记日志，不反复打扰
+     *  - 响应正常：双向校正"今日已完成"标记
+     *    · 服务端已打卡而本地未标记 → 补记（如在引擎侧打卡成功，主应用不再重复尝试）
+     *    · 服务端未打卡而本地已标记 → 清除并恢复打卡任务（误报残留）
+     * 30 秒节流，避免频繁 onResume 反复请求。
+     */
+    private fun probeServerState() {
+        val cookie = Prefs.getCookie(this)
+        if (cookie.isBlank()) return
+        val now = System.currentTimeMillis()
+        if (now - lastProbeAt < 30_000L) return
+        lastProbeAt = now
+        lifecycleScope.launch {
+            val resp = withContext(Dispatchers.IO) {
+                runCatching { CheckinApi(cookie).getToday() }.getOrNull()
+            } ?: return@launch // 网络失败：不做判定
+            val decided = parseTodayChecked(resp)
+            if (decided == null) {
+                // 会话失效（或其它服务端拒绝）：只提示一次
+                if (!sessionInvalidPrompted) {
+                    sessionInvalidPrompted = true
+                    LogStore.append(this@MainActivity, "[系统] 登录态失效：${resp.optString("msg")}")
+                    Toast.makeText(this@MainActivity, "登录已过期，请重新登录", Toast.LENGTH_LONG).show()
+                    refreshStatus()
+                }
+                return@launch
+            }
+            sessionInvalidPrompted = false
+            val localChecked = Prefs.isCheckedToday(this@MainActivity)
+            if (decided && !localChecked) {
+                Prefs.markCheckedToday(this@MainActivity)
+                Prefs.setLastResult(this@MainActivity, "今日已完成打卡（服务端确认）")
+                LogStore.append(this@MainActivity, "[系统] 服务端显示今日已打卡，已同步本地状态")
+                AlarmScheduler.scheduleDaily(this@MainActivity)
+                refreshStatus()
+            } else if (!decided && localChecked) {
                 Prefs.clearCheckedToday(this@MainActivity)
                 Prefs.setLastResult(this@MainActivity, "此前打卡未生效，已恢复自动打卡")
                 LogStore.append(

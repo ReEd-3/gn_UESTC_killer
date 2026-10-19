@@ -45,11 +45,27 @@ object EnginePrefs {
     fun getNextText(c: Context): String = sp(c).getString(KEY_NEXT_TEXT, "").orEmpty()
 
     // ── [v7 巡检链] 会话 / 坐标 / 窗口 / 巡检状态 ─────────────────────
-    // 安全备注：cookie 暂以明文存于引擎私有空间（后续可与主应用一致的加密存储）
+    // [修复 2026-10-19] v20 起 Cookie 改为 Keystore 加密存储（与主应用一致）；旧明文读取时自动迁移
 
-    fun setCookie(c: Context, v: String) = sp(c).edit().putString(KEY_COOKIE, v).apply()
+    fun setCookie(c: Context, v: String) {
+        val stored = if (v.isBlank()) v else (EngineSecretStore.encrypt(v) ?: v)
+        sp(c).edit().putString(KEY_COOKIE, stored).apply()
+    }
 
-    fun getCookie(c: Context): String = sp(c).getString(KEY_COOKIE, "").orEmpty()
+    fun getCookie(c: Context): String {
+        val raw = sp(c).getString(KEY_COOKIE, "").orEmpty()
+        if (raw.isBlank()) return ""
+        if (EngineSecretStore.isEncrypted(raw)) {
+            return EngineSecretStore.decrypt(raw) ?: run {
+                // 密钥失效/数据损坏：清除坏数据，等主应用下次 sync 重新下发
+                sp(c).edit().remove(KEY_COOKIE).apply()
+                ""
+            }
+        }
+        // 旧版本遗留的明文会话：本次读取后迁移为密文
+        setCookie(c, raw)
+        return raw
+    }
 
     fun setLat(c: Context, v: Double) = sp(c).edit().putString(KEY_LAT, v.toString()).apply()
 

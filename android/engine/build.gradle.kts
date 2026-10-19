@@ -20,8 +20,9 @@ android {
         // [修复 2026-10-19] v17：电池引导收敛——弹过即记账（每档一次）；同次激活不再连环引导；返回后延迟复查防误判
         // [修复 2026-10-19] v18：补 INTERNET 权限（此前巡检全部报 missing INTERNET permission）；会话失效时停止巡检
         // [修复 2026-10-19] v19：打卡结果通知可点击打开主应用（会话失效提示需可达）
-        versionCode = 19
-        versionName = "0.19"
+        // [修复 2026-10-19] v20：sync 携带"今日已完成"（app 成功后引擎立即撤今日网格）；Cookie 改为 Keystore 加密（旧明文自动迁移）
+        versionCode = 20
+        versionName = "0.20"
     }
 
     buildTypes {

@@ -72,6 +72,11 @@ class EngineReceiver : BroadcastReceiver() {
                 if (intent.hasExtra(EXTRA_WIN_END)) {
                     EnginePrefs.setWinEnd(context, intent.getIntExtra(EXTRA_WIN_END, EnginePrefs.getWinEnd(context)))
                 }
+                // [修复 2026-10-19] 主应用今日已完成 → 引擎记录成功日，scheduleAll 随即撤销今日巡检网格
+                if (intent.getBooleanExtra(EXTRA_CHECKED, false)) {
+                    val today = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
+                    EnginePrefs.setLastSuccessDate(context, today)
+                }
                 if (enabled) {
                     EngineKeepAliveService.start(context)
                     // [v12] 若广播唤不醒（后台启动限制），3 秒后用 exact alarm 再试一次（自带临时白名单）
@@ -163,6 +168,8 @@ class EngineReceiver : BroadcastReceiver() {
         const val EXTRA_NEXT_TEXT = "next_text"
         // [v7 巡检链] 打卡执行所需参数的同步字段
         const val EXTRA_COOKIE = "cookie"
+        // [修复 2026-10-19] 今日已完成标记（主应用 → 引擎）
+        const val EXTRA_CHECKED = "checked"
         const val EXTRA_LAT = "lat"
         const val EXTRA_LNG = "lng"
         const val EXTRA_WIN_START = "win_start"
