@@ -27,6 +27,8 @@ class BootstrapActivity : Activity() {
     private var askedBatteryOptimization = false
     // [v15] 已跳系统页面，等待用户返回后复检（"点了允许就没下文"的修复核心）
     private var awaitingReturn = false
+    // [v17] 返回后的延迟复查/收尾用主线程 Handler
+    private val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
 
     companion object {
         /** 与主应用 EngineBridge 约定：启动意图携带的"是否开启常驻"开关 */
@@ -62,8 +64,9 @@ class BootstrapActivity : Activity() {
 
     /**
      * [v15] 从系统页面/弹窗返回后复检：
-     *  - 已生效 → 提示"已生效 ✓"并结束；
-     *  - 未生效 → 立即升级到下一级引导（不再"点完就没了"）。
+     *  - 已生效 → 提示"已生效"并结束；
+     *  - 未生效 → [v17] 本次不再连环引导（用户反馈"跳两遍电池设置、第二遍多余"），
+     *    仅做一次延迟复查（防系统写入名单延迟导致误判）；下一档引导留给下次激活。
      * 首次 onResume（刚从 onCreate 进入）不受影响（awaitingReturn=false）。
      */
     override fun onResume() {
@@ -77,11 +80,28 @@ class BootstrapActivity : Activity() {
             finish()
             return
         }
-        // 未生效 → 当场升级引导
+        // [v17 已停用] 原实现：未生效 → 当场升级引导并再弹下一档（同一次激活里会连续跳两次设置页）
+        /*
         val next = (EnginePrefs.getBatteryPromptStage(this) + 1).coerceAtMost(2)
         EnginePrefs.setBatteryPromptStage(this, next)
         if (next >= 2) EnginePrefs.setBatteryPromptDone(this, true)
         showBatteryDialog(next)
+        */
+        // [v17] 延迟复查一次：部分系统写入豁免名单有延迟，立即判断可能误判"未生效"
+        mainHandler.postDelayed({
+            if (isFinishing || isDestroyed) return@postDelayed
+            if (pm.isIgnoringBatteryOptimizations(packageName)) {
+                EnginePrefs.setBatteryPromptDone(this, true)
+                android.widget.Toast.makeText(this, "后台运行权限已生效", android.widget.Toast.LENGTH_SHORT).show()
+            } else {
+                android.widget.Toast.makeText(
+                    this,
+                    "暂未检测到权限生效，可稍后在「权限检查」中确认",
+                    android.widget.Toast.LENGTH_LONG
+                ).show()
+            }
+            finish()
+        }, 600L)
     }
 
     /** [v15] 用户未返回而是离开了引导页 → 结束，下次激活再来（不残留） */
@@ -135,6 +155,10 @@ class BootstrapActivity : Activity() {
     /** [v15] 按阶梯等级弹出引导对话框 */
     private fun showBatteryDialog(stage: Int) {
         val st = stage.coerceIn(0, 2)
+        // [v17] 弹过即记账：同一档位跨会话只引导一次、到顶后不再反复弹出
+        //（此前用户"暂不"或"未生效"后，每次打开应用都会重复弹同一档）
+        if (st >= 2) EnginePrefs.setBatteryPromptDone(this, true)
+        else EnginePrefs.setBatteryPromptStage(this, st + 1)
         val message = when (st) {
             // [文案 2026-10-19] 正式版定稿：各档压缩为一句操作指引，去掉开发向解释
             0 -> "为保证清理后台后仍能准时打卡，请允许本组件在后台运行。"

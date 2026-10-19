@@ -864,14 +864,25 @@ class MainActivity : AppCompatActivity() {
                 this, Manifest.permission.POST_NOTIFICATIONS
             ) == PackageManager.PERMISSION_GRANTED
         val nm = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
-        val notifOk = notifGranted && nm.areNotificationsEnabled()
+        val notifMainOk = notifGranted && nm.areNotificationsEnabled()
+        // [修复 2026-10-19] 双包后"通知能力"由两个应用分别持有：打卡结果/常驻通知由「后台组件」发出。
+        // 此前只查本应用 → 用户给过后台组件的通知权限时，这里会显示"未开启"（用户反馈的"给了却说没给"）。
+        val engineInstalled = EngineBridge.query(this).installed
+        val engineNotifGranted = Build.VERSION.SDK_INT < 33 || !engineInstalled || runCatching {
+            packageManager.checkPermission(
+                Manifest.permission.POST_NOTIFICATIONS, EngineBridge.ENGINE_PACKAGE
+            ) == PackageManager.PERMISSION_GRANTED
+        }.getOrDefault(false)
+        val notifOk = notifMainOk && engineNotifGranted
         val alarmOk = AlarmScheduler.canScheduleExact(this)
         val pm = getSystemService(POWER_SERVICE) as PowerManager
         val batteryOk = pm.isIgnoringBatteryOptimizations(packageName)
 
         LogStore.append(
             this,
-            "[权限] 检查：通知=${if (notifOk) "通过" else "未配置"}；" +
+            "[权限] 检查：通知=${if (notifOk) "通过" else "未配置"}" +
+                "（本应用${if (notifMainOk) "✓" else "✗"} · 组件" +
+                "${if (!engineInstalled) "未安装" else if (engineNotifGranted) "✓" else "✗"}）；" +
                 "精确闹钟=${if (alarmOk) "通过" else "未配置"}；" +
                 "电池优化=${if (batteryOk) "通过" else "未配置"}"
         )
@@ -892,6 +903,19 @@ class MainActivity : AppCompatActivity() {
                             Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
                                 .putExtra(Settings.EXTRA_APP_PACKAGE, packageName)
                         )
+                        // [修复 2026-10-19] 本应用已就绪、后台组件缺通知权限 → 直接打开组件的通知设置页
+                        engineInstalled && !engineNotifGranted -> runCatching {
+                            startActivity(
+                                Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                                    .putExtra(Settings.EXTRA_APP_PACKAGE, EngineBridge.ENGINE_PACKAGE)
+                            )
+                        }.onFailure {
+                            Toast.makeText(
+                                this,
+                                "未能打开「后台组件」的通知设置，请在系统设置中手动开启",
+                                Toast.LENGTH_LONG
+                            ).show()
+                        }
                         else -> toastPermDone()
                     }
                     1 -> if (alarmOk) toastPermDone() else startActivity(
