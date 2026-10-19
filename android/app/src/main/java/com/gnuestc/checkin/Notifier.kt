@@ -3,7 +3,9 @@ package com.gnuestc.checkin
 import android.Manifest
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.PendingIntent
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import androidx.core.app.NotificationCompat
@@ -35,10 +37,18 @@ object Notifier {
         val finalResult = CheckinRunner.isFinal(text)
         // [文案 2026-10-19] 通知显示用「用户向」文案；isFinal 判断与日志仍使用原始结果
         val displayText = CheckinRunner.userText(text)
+        // [修复 2026-10-19] 点击通知直接打开应用（会话失效时提示“请重新登录”，需可达）
+        val contentPi = PendingIntent.getActivity(
+            context, 0,
+            Intent(context, MainActivity::class.java)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.stat_notify_sync)
             .setContentTitle("晚安打卡")
             .setContentText(displayText)
+            .setContentIntent(contentPi)
             .setAutoCancel(true)
             .setOnlyAlertOnce(!finalResult)
             .build()

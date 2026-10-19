@@ -280,6 +280,18 @@ object EnginePatrol {
             return
         }
         val now = fmtTime().format(Date())
+        // [修复 2026-10-19] 点击通知直接打开主应用（会话失效提示“请重新登录”时需可达）
+        val openApp = runCatching {
+            (context.packageManager.getLaunchIntentForPackage("com.gnuestc.checkin")
+                ?: Intent().setClassName("com.gnuestc.checkin", "com.gnuestc.checkin.MainActivity"))
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }.getOrNull()
+        val contentPi = openApp?.let {
+            PendingIntent.getActivity(
+                context, 0, it,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+        }
         // [文案 2026-10-19] 正式版定稿：通知用用户向短句；message 仍用于日志/事件上报
         val n = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.stat_notify_sync)
@@ -299,6 +311,7 @@ object EnginePatrol {
             )
             .setAutoCancel(true)
             .setOnlyAlertOnce(!success)
+            .apply { contentPi?.let { setContentIntent(it) } }
             .build()
         if (success) nm.cancel(NOTIFY_FAIL)
         nm.notify(if (success) NOTIFY_SUCCESS else NOTIFY_FAIL, n)
