@@ -41,7 +41,8 @@ class LoginActivity : AppCompatActivity() {
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
-        ThemeManager.apply(this)
+        // [修复 2026-10-19] 主题已改由 App(Application) 统一应用；保留备查
+        // ThemeManager.apply(this)
         super.onCreate(savedInstanceState)
         binding = ActivityLoginBinding.inflate(layoutInflater)
         setContentView(binding.root)

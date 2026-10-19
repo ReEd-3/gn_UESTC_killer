@@ -90,7 +90,8 @@ class MainActivity : AppCompatActivity() {
         }
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        ThemeManager.apply(this)
+        // [修复 2026-10-19] 主题已改由 App(Application) 统一应用，避免 Resources 配置竞态；保留备查
+        // ThemeManager.apply(this)
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
