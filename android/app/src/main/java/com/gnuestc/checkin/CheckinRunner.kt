@@ -113,7 +113,10 @@ object CheckinRunner {
     /** 结果是否属于「不需要再重试」 */
     fun isFinal(result: String): Boolean =
         result.contains("成功") || result.contains("已打卡") ||
-            result.contains("已完成") || result.contains("跳过") || result.contains("未登录")
+            result.contains("已完成") || result.contains("跳过") || result.contains("未登录") ||
+            // [修复 2026-10-19] 会话失效（服务端"登录无效或已过期"）重试无法恢复：
+            // 归为终态，停止每 5 分钟重试并提示重新登录（此前会无限重试）
+            result.contains("登录无效") || result.contains("已过期")
 
     /**
      * [文案 2026-10-19] 「用户向」文案：通知 / 首页「最近打卡」/ 前台 Toast 使用；
@@ -121,7 +124,9 @@ object CheckinRunner {
      */
     fun userText(result: String): String = when {
         result.contains("已恢复") -> result // 对账提示本就是用户向文案
-        result.contains("未登录") -> "登录已过期，请重新登录"
+        // [修复 2026-10-19] 服务端会话失效（"登录无效或已过期"）：提示重新登录
+        result.contains("登录无效") || result.contains("已过期") || result.contains("未登录") ->
+            "登录已过期，请重新登录"
         result.contains("判定重复") -> "打卡未成功（重复提交），稍后自动重试"
         result.contains("未生效") -> "打卡未成功：服务端未记录，稍后自动重试"
         result.contains("失败") || result.contains("异常") -> "打卡失败，稍后自动重试"

@@ -251,9 +251,20 @@ object EnginePatrol {
                 notifyResult(context, success = false, message)
                 EngineEvents.send(context, EngineEvents.EVENT_CHECKIN_FAILED, message)
             }
+            // [修复 2026-10-19] 会话失效（服务端"登录无效或已过期"）：重试不会恢复，撤掉全部巡检，
+            // 等用户重新登录（重新登录后主应用 sync → 常驻服务启动会重新排链）；
+            // 此前这种失败会被当成普通失败反复重试
+            if (isSessionInvalid(message)) {
+                cancelAll(context)
+                return
+            }
         }
         scheduleAll(context)
     }
+
+    /** [修复 2026-10-19] 服务端会话是否已失效（重试无意义，需用户重新登录） */
+    private fun isSessionInvalid(message: String): Boolean =
+        message.contains("登录无效") || message.contains("已过期") || message.contains("未登录")
 
     private fun notifyResult(context: Context, success: Boolean, message: String) {
         val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
@@ -281,7 +292,9 @@ object EnginePatrol {
                         "今天的打卡已完成（$now）"
                     }
                 } else {
-                    "将在打卡时间内自动重试"
+                    // [修复 2026-10-19] 会话失效时提示重新登录（自动重试无法恢复）；其余情况提示稍后重试
+                    if (isSessionInvalid(message)) "登录已过期，请重新登录"
+                    else "将在打卡时间内自动重试"
                 }
             )
             .setAutoCancel(true)

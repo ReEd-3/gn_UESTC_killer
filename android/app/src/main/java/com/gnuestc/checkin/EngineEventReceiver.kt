@@ -31,7 +31,13 @@ class EngineEventReceiver : BroadcastReceiver() {
                 Prefs.markCheckedToday(context)
                 "[引擎] 后台巡检打卡成功（$fmt）"
             }
-            "checkin_failed" -> "[引擎] 打卡未成功：$detail（$fmt）→ 将继续自动重试"
+            "checkin_failed" -> {
+                // [修复 2026-10-19] 会话失效时引擎已暂停巡检，日志如实说明（需重新登录）
+                val tail = if (detail.contains("登录无效") || detail.contains("已过期") ||
+                    detail.contains("未登录")
+                ) "→ 已暂停今日/明日巡检，请重新登录" else "→ 将继续自动重试"
+                "[引擎] 打卡未成功：$detail（$fmt）$tail"
+            }
             else -> return
         }
         LogStore.append(context, text)
