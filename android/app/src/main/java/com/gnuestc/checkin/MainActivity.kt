@@ -283,7 +283,8 @@ class MainActivity : AppCompatActivity() {
 
         // 「最近打卡」按结果着色：成功绿 / 失败橙 / 其余默认
         val lastResult = Prefs.getLastResult(this)
-        binding.tvLast.text = lastResult ?: getString(R.string.no_record)
+        // [文案 2026-10-19] 卡片展示用「用户向」文案；下面的着色判断仍用原始结果
+        binding.tvLast.text = lastResult?.let { CheckinRunner.userText(it) } ?: getString(R.string.no_record)
         val lastColor = when {
             lastResult == null -> R.color.text_secondary
             lastResult.contains("成功") || lastResult.contains("已打卡") || lastResult.contains("已完成") -> R.color.dot_on
@@ -518,7 +519,7 @@ class MainActivity : AppCompatActivity() {
                 CheckinRunner.syncExtras(this@MainActivity)
             }
             binding.progressBusy.visibility = View.GONE
-            Toast.makeText(this@MainActivity, result, Toast.LENGTH_SHORT).show()
+            Toast.makeText(this@MainActivity, CheckinRunner.userText(result), Toast.LENGTH_SHORT).show()
             refreshStatus()
         }
     }
@@ -579,7 +580,7 @@ class MainActivity : AppCompatActivity() {
             }
             binding.progressBusy.visibility = View.GONE
             catchUpRunning = false
-            Toast.makeText(this@MainActivity, result, Toast.LENGTH_SHORT).show()
+            Toast.makeText(this@MainActivity, CheckinRunner.userText(result), Toast.LENGTH_SHORT).show()
             refreshStatus()
         }
     }

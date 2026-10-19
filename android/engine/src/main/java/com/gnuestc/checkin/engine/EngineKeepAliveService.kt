@@ -219,14 +219,15 @@ class EngineKeepAliveService : Service() {
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
             val next = EnginePrefs.getNextText(context)
+            // [文案 2026-10-19] 正式版定稿：去掉"引擎/守护"等内部用语
             val text = if (next.isBlank()) {
-                "后台组件守护中 · 点击打开应用"
+                "点击打开应用"
             } else {
-                "下次打卡：$next · 点击打开应用"
+                "下次打卡：$next（点击打开应用）"
             }
             return NotificationCompat.Builder(context, CHANNEL_ID)
                 .setSmallIcon(android.R.drawable.stat_notify_sync)
-                .setContentTitle("打卡引擎运行中")
+                .setContentTitle("自动打卡运行中")
                 .setContentText(text)
                 .setOngoing(true) // 不可划掉
                 .setOnlyAlertOnce(true)

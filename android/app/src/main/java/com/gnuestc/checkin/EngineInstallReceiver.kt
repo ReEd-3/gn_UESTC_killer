@@ -39,7 +39,7 @@ class EngineInstallReceiver : BroadcastReceiver() {
                     "[引擎] 安装失败（status=$status）${if (msg.isNotBlank()) "：$msg" else ""}"
                 )
                 runCatching {
-                    Toast.makeText(context, "后台组件安装失败，详见应用日志", Toast.LENGTH_LONG).show()
+                    Toast.makeText(context, "安装失败，请重试（详情见运行日志）", Toast.LENGTH_LONG).show()
                 }
             }
         }

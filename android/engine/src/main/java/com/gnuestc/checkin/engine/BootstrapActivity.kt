@@ -73,7 +73,7 @@ class BootstrapActivity : Activity() {
         val pm = getSystemService(POWER_SERVICE) as PowerManager
         if (pm.isIgnoringBatteryOptimizations(packageName)) {
             EnginePrefs.setBatteryPromptDone(this, true)
-            android.widget.Toast.makeText(this, "后台运行权限已生效 ✓", android.widget.Toast.LENGTH_SHORT).show()
+            android.widget.Toast.makeText(this, "后台运行权限已生效", android.widget.Toast.LENGTH_SHORT).show()
             finish()
             return
         }
@@ -97,8 +97,8 @@ class BootstrapActivity : Activity() {
             if (!am.canScheduleExactAlarms()) {
                 askedAlarmPermission = true
                 android.app.AlertDialog.Builder(this)
-                    .setTitle("后台组件：需要「闹钟和提醒」权限")
-                    .setMessage("为保证定时打卡准时触发，请允许本组件使用闹钟和提醒。")
+                    .setTitle("需要开启「闹钟和提醒」权限")
+                    .setMessage("请允许本组件使用「闹钟和提醒」，确保定时打卡准时触发。")
                     .setPositiveButton("去允许") { _, _ ->
                         runCatching {
                             startActivity(
@@ -136,15 +136,15 @@ class BootstrapActivity : Activity() {
     private fun showBatteryDialog(stage: Int) {
         val st = stage.coerceIn(0, 2)
         val message = when (st) {
-            0 -> "为保证熄屏/划掉后台后定时打卡仍能运行，请允许本组件在后台运行。\n" +
-                "（部分系统在下一步弹窗里点\"允许\"并不足够，返回后会自动检查并继续引导）"
-            1 -> "刚才的允许没有真正生效。请点「打开应用信息」，在该页面的「电池 / 耗电管理」中选择" +
-                "\"允许完全后台行为\"（不同系统叫法不同：不优化 / 允许后台运行）。"
-            else -> "最后一步：打开应用信息后，找到本应用的「后台运行 / 耗电管理」相关开关并允许。"
+            // [文案 2026-10-19] 正式版定稿：各档压缩为一句操作指引，去掉开发向解释
+            0 -> "为保证清理后台后仍能准时打卡，请允许本组件在后台运行。"
+            1 -> "上一步未生效。请在打开的页面中，把本组件的耗电管理设为「允许完全后台行为」" +
+                "（不同系统叫法：不优化 / 允许后台运行）。"
+            else -> "请在应用信息页找到本组件的「后台运行 / 耗电管理」，允许后台运行。"
         }
         val action = if (st == 0) "去允许" else "打开应用信息"
         android.app.AlertDialog.Builder(this)
-            .setTitle("后台组件：需要后台运行权限")
+            .setTitle("需要开启后台运行权限")
             .setMessage(message)
             .setPositiveButton(action) { _, _ -> onBatteryAction(st) }
             .setNegativeButton("暂不") { _, _ -> finish() }

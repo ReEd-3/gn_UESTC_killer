@@ -114,4 +114,19 @@ object CheckinRunner {
     fun isFinal(result: String): Boolean =
         result.contains("成功") || result.contains("已打卡") ||
             result.contains("已完成") || result.contains("跳过") || result.contains("未登录")
+
+    /**
+     * [文案 2026-10-19] 「用户向」文案：通知 / 首页「最近打卡」/ 前台 Toast 使用；
+     * 运行日志与内部记录仍保留原始结果（技术细节供排查）。
+     */
+    fun userText(result: String): String = when {
+        result.contains("已恢复") -> result // 对账提示本就是用户向文案
+        result.contains("未登录") -> "登录已过期，请重新登录"
+        result.contains("判定重复") -> "打卡未成功（重复提交），稍后自动重试"
+        result.contains("未生效") -> "打卡未成功：服务端未记录，稍后自动重试"
+        result.contains("失败") || result.contains("异常") -> "打卡失败，稍后自动重试"
+        result.contains("跳过") -> "今日无需打卡"
+        result.contains("成功") || result.contains("已打卡") || result.contains("已完成") -> "今天的打卡已完成"
+        else -> result
+    }
 }

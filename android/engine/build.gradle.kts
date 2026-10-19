@@ -16,8 +16,9 @@ android {
         minSdk = 26
         targetSdk = 35
         // [双包 2026-10-19] v15：引导闭环——去掉 noHistory，跳系统页后返回即复检；未生效当场升级到应用信息页/厂商耗电页
-        versionCode = 15
-        versionName = "0.15"
+        // [文案 2026-10-19] v16：正式版文案定稿（引擎通知/权限弹窗去开发者用语；日志与测试类文案保持）
+        versionCode = 16
+        versionName = "0.16"
     }
 
     buildTypes {

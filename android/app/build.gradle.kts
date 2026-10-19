@@ -13,8 +13,9 @@ android {
         applicationId = "com.gnuestc.checkin"
         minSdk = 26
         targetSdk = 35
-        versionCode = 7
-        versionName = "0.4.2"
+        // [发布 2026-10-19] 0.4.3（vc8）：文案定稿版；此后 debug 与 release 共用同一版本号
+        versionCode = 8
+        versionName = "0.4.3"
     }
 
     buildTypes {

@@ -269,10 +269,21 @@ object EnginePatrol {
             return
         }
         val now = fmtTime().format(Date())
+        // [文案 2026-10-19] 正式版定稿：通知用用户向短句；message 仍用于日志/事件上报
         val n = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.stat_notify_sync)
-            .setContentTitle(if (success) "打卡引擎 · 打卡成功" else "打卡引擎 · 打卡未成功")
-            .setContentText(if (success) "$now $message（后台巡检）" else "$message —— 将继续自动重试")
+            .setContentTitle(if (success) "打卡成功" else "打卡未成功")
+            .setContentText(
+                if (success) {
+                    if (message.contains("跳过")) {
+                        "今日无需打卡（$now）"
+                    } else {
+                        "今天的打卡已完成（$now）"
+                    }
+                } else {
+                    "将在打卡时间内自动重试"
+                }
+            )
             .setAutoCancel(true)
             .setOnlyAlertOnce(!success)
             .build()
