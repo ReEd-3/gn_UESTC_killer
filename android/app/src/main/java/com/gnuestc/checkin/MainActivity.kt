@@ -253,6 +253,9 @@ class MainActivity : AppCompatActivity() {
         // [旧入口保留备查]
         // reconcileCheckedState()
         probeServerState()
+        // [修复 2026-10-19] 每次回到前台都把最新状态（含今日已完成标记 / 下次打卡文案）同步给引擎：
+        // 幂等、开销极小；修复“登录/打卡后引擎仍持旧状态”的滞后（此前只在 onCreate 同步）
+        syncEngineState()
         // [双包 2026-10-18] 安装流程续接：授权返回后自动继续安装、安装完自动激活
         resumeEngineInstallFlow()
     }
@@ -523,6 +526,8 @@ class MainActivity : AppCompatActivity() {
             withContext(Dispatchers.IO) {
                 CheckinRunner.rescheduleAfterRun(this@MainActivity, result)
                 CheckinRunner.syncExtras(this@MainActivity)
+                // [修复 2026-10-19] 打完立即同步引擎（同上）
+                EngineBridge.syncState(this@MainActivity)
             }
             binding.progressBusy.visibility = View.GONE
             Toast.makeText(this@MainActivity, CheckinRunner.userText(result), Toast.LENGTH_SHORT).show()
@@ -652,6 +657,8 @@ class MainActivity : AppCompatActivity() {
             withContext(Dispatchers.IO) {
                 CheckinRunner.rescheduleAfterRun(this@MainActivity, result)
                 CheckinRunner.syncExtras(this@MainActivity)
+                // [修复 2026-10-19] 打完立即同步引擎：今日已完成标记 / 下次打卡文案及时到位
+                EngineBridge.syncState(this@MainActivity)
             }
             binding.progressBusy.visibility = View.GONE
             catchUpRunning = false

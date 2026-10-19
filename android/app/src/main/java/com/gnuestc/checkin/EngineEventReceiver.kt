@@ -29,6 +29,9 @@ class EngineEventReceiver : BroadcastReceiver() {
             // [v7 巡检链] 引擎独立打卡结果 → 同步主应用状态
             "checkin_success" -> {
                 Prefs.markCheckedToday(context)
+                // [修复 2026-10-19] 立即把主应用的重试链指向明天：
+                // 否则引擎已打完卡时，主应用还要等下一轮重试/补打才发现已完成
+                runCatching { AlarmScheduler.scheduleDaily(context) }
                 "[引擎] 后台巡检打卡成功（$fmt）"
             }
             "checkin_failed" -> {

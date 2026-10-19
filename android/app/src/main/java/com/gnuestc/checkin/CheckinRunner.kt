@@ -80,7 +80,7 @@ object CheckinRunner {
                 else -> "未知状态 $status，将继续重试"
             }
         } catch (e: Exception) {
-            // 会话失效时接口会返回登录页 HTML，JSON 解析失败也走这里
+            // 网络异常/解析失败/服务端返回非预期内容时走这里（会话失效通常为 JSON msg，走“打卡失败：…”分支）
             "打卡异常：${e.message}"
         }
         Prefs.setLastResult(context, result)

@@ -209,6 +209,10 @@ class LoginActivity : AppCompatActivity() {
                 }
                 // 立即安排：未到点排窗口开始时间；窗口内则 1 分钟后尽快补打
                 AlarmScheduler.ensureScheduled(this@LoginActivity)
+                // [修复 2026-10-19] 登录成功立即把新会话同步给引擎：
+                // 否则返回主界面只走 onResume 时，引擎可能仍持旧/空 Cookie →
+                // 巡检报“登录无效”、常驻通知的“下次打卡”文案滞后
+                EngineBridge.syncState(this@LoginActivity)
                 Toast.makeText(
                     this@LoginActivity,
                     getString(R.string.login_success, verify),
