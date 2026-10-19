@@ -61,7 +61,7 @@ class MainActivity : AppCompatActivity() {
     private var pendingUnknownSources = false
     // [修复 2026-10-18] 已发起引擎安装、待回前台校验结果（防止"安装没生效却无提示"）
     private var awaitingEngineInstall = false
-    // [修复 2026-10-18] "卸载后重装"流程标记：卸载完成后自动重装内嵌 v5（修复签名冲突等场景）
+    // [修复 2026-10-18] "卸载后重装"流程标记：卸载完成后自动重装内嵌引擎（修复签名冲突等场景）
     private var pendingEngineReinstall = false
     private var reinstallRequestedAt = 0L
     // [修复 v12] 本次会话是否已做过"活动唤醒"引擎（每次打开应用做一次，用于恢复被冻结/停掉的引擎）
@@ -950,31 +950,38 @@ class MainActivity : AppCompatActivity() {
             info.contentDiffers -> getString(R.string.engine_status_content_differs, info.installedVersionCode)
             else -> getString(R.string.engine_status_installed, info.installedVersionCode)
         }
-        val items = arrayOf(
-            getString(R.string.engine_install),
-            getString(R.string.engine_test_alarm),
-            getString(R.string.engine_ping),
-            getString(R.string.engine_reinstall)
-        )
+        // [分轨 2026-10-19] 测试功能仅保留在调试版；正式版只提供「安装 / 更新后台组件」
+        val items = if (BuildConfig.DEBUG) {
+            arrayOf(
+                getString(R.string.engine_install),
+                getString(R.string.engine_test_alarm),
+                getString(R.string.engine_ping),
+                getString(R.string.engine_reinstall)
+            )
+        } else {
+            arrayOf(getString(R.string.engine_install))
+        }
         MaterialAlertDialogBuilder(this)
             .setTitle(getString(R.string.engine_menu_title, status))
             .setItems(items) { _, which ->
                 when (which) {
                     0 -> installEngineFlow()
-                    1 -> {
+                    // [分轨 2026-10-19] 下面 1/2/3 均为测试用入口：再包一层常量守卫，
+                    // 让 R8 在正式包里把整段剔除（正式版菜单里本来也不会出现这几项）
+                    1 -> if (BuildConfig.DEBUG) {
                         // 保险：先尝试拉起引擎引导页（解除 stopped 状态），再发指令
                         EngineBridge.activateEngine(this)
                         EngineBridge.sendCommand(this, "schedule_test") { it.putExtra("minutes", 2) }
                         Toast.makeText(this, R.string.engine_sent_test, Toast.LENGTH_LONG).show()
                         LogStore.append(this, "[引擎] 已发送测试闹钟指令（2 分钟后触发）")
                     }
-                    2 -> {
+                    2 -> if (BuildConfig.DEBUG) {
                         EngineBridge.activateEngine(this)
                         EngineBridge.sendCommand(this, "ping")
                         Toast.makeText(this, R.string.engine_sent_ping, Toast.LENGTH_SHORT).show()
                         LogStore.append(this, "[引擎] 已发送连通测试")
                     }
-                    3 -> reinstallEngineFlow()
+                    3 -> if (BuildConfig.DEBUG) reinstallEngineFlow()
                 }
             }
             .setPositiveButton(R.string.about_ok, null)
@@ -1003,7 +1010,7 @@ class MainActivity : AppCompatActivity() {
 
     /**
      * [修复 2026-10-18] 卸载后重装：用于"更新一直装不上/签名冲突"的修复场景。
-     * 卸载完成后回到应用会自动重新安装内嵌的 v5。
+     * 卸载完成后回到应用会自动重新安装内嵌引擎。
      */
     private fun reinstallEngineFlow() {
         val info = EngineBridge.query(this)
@@ -1019,7 +1026,7 @@ class MainActivity : AppCompatActivity() {
         if (ok) {
             pendingEngineReinstall = true
             reinstallRequestedAt = System.currentTimeMillis()
-            LogStore.append(this, "[引擎] 已拉起卸载界面（确认卸载后将自动重装内嵌 v5）")
+            LogStore.append(this, "[引擎] 已拉起卸载界面（确认卸载后将自动重装内嵌引擎）")
         } else {
             Toast.makeText(this, R.string.engine_install_failed, Toast.LENGTH_SHORT).show()
         }
@@ -1061,11 +1068,11 @@ class MainActivity : AppCompatActivity() {
                 )
             }
         }
-        // [修复 2026-10-18] "卸载后重装"：旧组件已卸载 → 自动重装内嵌 v5
+        // [修复 2026-10-18] "卸载后重装"：旧组件已卸载 → 自动重装内嵌引擎
         if (pendingEngineReinstall) {
             if (!info.installed) {
                 pendingEngineReinstall = false
-                LogStore.append(this, "[引擎] 旧组件已卸载，开始重新安装内嵌 v5")
+                LogStore.append(this, "[引擎] 旧组件已卸载，开始重新安装内嵌引擎")
                 installEngineFlow()
                 return
             }
@@ -1091,7 +1098,8 @@ class MainActivity : AppCompatActivity() {
             LogStore.append(this, "[引擎] 后台组件已就绪（v${info.installedVersionCode}），已完成初始化")
             Toast.makeText(this, R.string.engine_activated, Toast.LENGTH_SHORT).show()
             // [双包 2026-10-18] 自动 ping：立即给一个"引擎已接通"的可视信号（引擎会回一条通知）
-            EngineBridge.sendCommand(this, "ping")
+            // [分轨 2026-10-19] 仅调试版执行；正式版静默（不向用户展示测试类通知）
+            if (BuildConfig.DEBUG) EngineBridge.sendCommand(this, "ping")
         }
     }
 }
