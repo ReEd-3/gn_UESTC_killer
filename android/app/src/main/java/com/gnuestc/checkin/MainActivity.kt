@@ -58,6 +58,9 @@ class MainActivity : AppCompatActivity() {
     // [修复 2026-10-19] 打开应用时的服务端状态探测（节流 + 会话失效只提示一次）
     private var lastProbeAt = 0L
     private var sessionInvalidPrompted = false
+    // [修复 2026-10-19] 上次同步给引擎的状态签名：只有状态真的变化才发 sync
+    //（避免频繁 onResume 让引擎反复全量重排闹钟）
+    private var lastEngineSyncSig: String? = null
     private var pendingGpsRequest = false
     private val reqLocationCode = 1001
     // [双包 2026-10-18] 安装流程续接标记：先去授权"安装未知应用"，返回后自动继续安装
@@ -80,6 +83,8 @@ class MainActivity : AppCompatActivity() {
                     Prefs.setLocation(this, lat, lng)
                     LogStore.append(this, "[定位] 地图选点已保存：%.6f, %.6f".format(Locale.US, lat, lng))
                     refreshStatus()
+                    // [修复 2026-10-19] 坐标变化立即同步引擎（引擎巡检用新坐标提交）
+                    syncEngineStateNow()
                 }
             }
         }
@@ -240,7 +245,8 @@ class MainActivity : AppCompatActivity() {
         // [双包 2026-10-18] 检测后台组件安装状态，必要时引导安装
         maybePromptEngineInstall()
         // [双包 2026-10-18] 把服务开关与下次打卡时间同步给引擎（常驻定义在引擎侧）
-        syncEngineState()
+        // [修复 2026-10-19] 改为“同步并记录签名”：首次启动必发一次，随后 onResume 不会重复发送
+        syncEngineStateNow()
     }
 
     override fun onResume() {
@@ -253,9 +259,9 @@ class MainActivity : AppCompatActivity() {
         // [旧入口保留备查]
         // reconcileCheckedState()
         probeServerState()
-        // [修复 2026-10-19] 每次回到前台都把最新状态（含今日已完成标记 / 下次打卡文案）同步给引擎：
-        // 幂等、开销极小；修复“登录/打卡后引擎仍持旧状态”的滞后（此前只在 onCreate 同步）
-        syncEngineState()
+        // [修复 2026-10-19] 回到前台按“状态签名”决定是否同步引擎：
+        // 状态（下次触发/已完成/开关/窗口/坐标）未变化就不发广播，避免每次 onResume 让引擎全量重排
+        syncEngineStateIfChanged()
         // [双包 2026-10-18] 安装流程续接：授权返回后自动继续安装、安装完自动激活
         resumeEngineInstallFlow()
     }
@@ -333,13 +339,38 @@ class MainActivity : AppCompatActivity() {
             LogStore.append(this, "[系统] 后台打卡服务已停止")
         }
         // [双包 2026-10-18] 把开关状态同步给引擎（引擎侧负责常驻通知）
-        syncEngineState()
+        syncEngineStateNow()
         refreshStatus()
     }
 
     /** [双包 2026-10-18] 同步服务开关与会话/坐标/窗口给引擎（[v7] 统一走 EngineBridge.syncState） */
     private fun syncEngineState() {
         EngineBridge.syncState(this)
+    }
+
+    /** [修复 2026-10-19] 引擎同步签名：任一状态变化都需要重新同步 */
+    private fun engineSyncSig(): String = buildString {
+        append(Prefs.getNextTrigger(this@MainActivity)).append('|')
+        append(Prefs.isCheckedToday(this@MainActivity)).append('|')
+        append(Prefs.isServiceEnabled(this@MainActivity)).append('|')
+        append(Prefs.getWindowStartMinute(this@MainActivity)).append('|')
+        append(Prefs.getWindowEndMinute(this@MainActivity)).append('|')
+        append(Prefs.getLocationLat(this@MainActivity)).append('|')
+        append(Prefs.getLocationLng(this@MainActivity))
+    }
+
+    /** [修复 2026-10-19] 仅在状态签名变化时同步（onResume 等高频路径使用） */
+    private fun syncEngineStateIfChanged() {
+        val sig = engineSyncSig()
+        if (sig == lastEngineSyncSig) return
+        lastEngineSyncSig = sig
+        syncEngineState()
+    }
+
+    /** [修复 2026-10-19] 主动同步并记录签名（打卡完成/改窗口/改坐标等明确变更后使用） */
+    private fun syncEngineStateNow() {
+        lastEngineSyncSig = engineSyncSig()
+        syncEngineState()
     }
 
     /** 应用日志折叠状态（animate=true 时抽屉式推拉动画，版本行保持固定底部） */
@@ -527,7 +558,7 @@ class MainActivity : AppCompatActivity() {
                 CheckinRunner.rescheduleAfterRun(this@MainActivity, result)
                 CheckinRunner.syncExtras(this@MainActivity)
                 // [修复 2026-10-19] 打完立即同步引擎（同上）
-                EngineBridge.syncState(this@MainActivity)
+                syncEngineStateNow()
             }
             binding.progressBusy.visibility = View.GONE
             Toast.makeText(this@MainActivity, CheckinRunner.userText(result), Toast.LENGTH_SHORT).show()
@@ -621,6 +652,8 @@ class MainActivity : AppCompatActivity() {
                 LogStore.append(this@MainActivity, "[系统] 服务端显示今日已打卡，已同步本地状态")
                 AlarmScheduler.scheduleDaily(this@MainActivity)
                 refreshStatus()
+                // [修复 2026-10-19] 标记补记后立即同步引擎（引擎可撤今日网格）
+                syncEngineStateNow()
             } else if (!decided && localChecked) {
                 Prefs.clearCheckedToday(this@MainActivity)
                 Prefs.setLastResult(this@MainActivity, "此前打卡未生效，已恢复自动打卡")
@@ -631,6 +664,8 @@ class MainActivity : AppCompatActivity() {
                 AlarmScheduler.ensureScheduled(this@MainActivity)
                 refreshStatus()
                 maybeRunForegroundCatchUp()
+                // [修复 2026-10-19] 清除标记后立即同步引擎（引擎可恢复今日巡检）
+                syncEngineStateNow()
             }
         }
     }
@@ -658,7 +693,7 @@ class MainActivity : AppCompatActivity() {
                 CheckinRunner.rescheduleAfterRun(this@MainActivity, result)
                 CheckinRunner.syncExtras(this@MainActivity)
                 // [修复 2026-10-19] 打完立即同步引擎：今日已完成标记 / 下次打卡文案及时到位
-                EngineBridge.syncState(this@MainActivity)
+                syncEngineStateNow()
             }
             binding.progressBusy.visibility = View.GONE
             catchUpRunning = false
@@ -692,6 +727,8 @@ class MainActivity : AppCompatActivity() {
                         Prefs.resetWindow(this)
                         LogStore.append(this, getString(R.string.window_reset_done))
                         AlarmScheduler.ensureScheduled(this)
+                        // [修复 2026-10-19] 窗口变更立即同步引擎（此前要等下一次 sync）
+                        syncEngineStateNow()
                         refreshStatus()
                     }
                 }
@@ -772,6 +809,8 @@ class MainActivity : AppCompatActivity() {
                     val label = Prefs.windowLabel(this)
                     LogStore.append(this, getString(R.string.window_manual_done, label))
                     AlarmScheduler.ensureScheduled(this)
+                    // [修复 2026-10-19] 窗口变更立即同步引擎
+                    syncEngineStateNow()
                     refreshStatus()
                     Toast.makeText(this, getString(R.string.window_manual_done, label), Toast.LENGTH_SHORT).show()
                     dialog.dismiss()
@@ -804,6 +843,8 @@ class MainActivity : AppCompatActivity() {
             LogStore.append(this@MainActivity, "[窗口] $msg")
             Toast.makeText(this@MainActivity, msg, Toast.LENGTH_SHORT).show()
             AlarmScheduler.ensureScheduled(this@MainActivity)
+            // [修复 2026-10-19] 窗口变更立即同步引擎
+            syncEngineStateNow()
             refreshStatus()
         }
     }
@@ -827,6 +868,8 @@ class MainActivity : AppCompatActivity() {
                         Prefs.resetLocation(this)
                         LogStore.append(this, "[定位] 已重置为默认定位点（${Prefs.getDefaultName(this)}）")
                         refreshStatus()
+                        // [修复 2026-10-19] 坐标变化立即同步引擎
+                        syncEngineStateNow()
                     }
                 }
             }
@@ -852,6 +895,8 @@ class MainActivity : AppCompatActivity() {
                     Prefs.setLocation(this, lat, lng)
                     LogStore.append(this, "[定位] 手动输入已保存：%.6f, %.6f".format(Locale.US, lat, lng))
                     refreshStatus()
+                    // [修复 2026-10-19] 坐标变化立即同步引擎
+                    syncEngineStateNow()
                 }
             }
             .setNegativeButton(R.string.map_cancel, null)
@@ -885,6 +930,8 @@ class MainActivity : AppCompatActivity() {
                 Prefs.setLocation(this, gcjLat, gcjLng)
                 LogStore.append(this, "[定位] 已使用当前位置（WGS84 已自动换算 GCJ02）")
                 refreshStatus()
+                // [修复 2026-10-19] 坐标变化立即同步引擎
+                syncEngineStateNow()
             }
         }
     }

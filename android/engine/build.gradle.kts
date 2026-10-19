@@ -21,8 +21,9 @@ android {
         // [修复 2026-10-19] v18：补 INTERNET 权限（此前巡检全部报 missing INTERNET permission）；会话失效时停止巡检
         // [修复 2026-10-19] v19：打卡结果通知可点击打开主应用（会话失效提示需可达）
         // [修复 2026-10-19] v20：sync 携带"今日已完成"（app 成功后引擎立即撤今日网格）；Cookie 改为 Keystore 加密（旧明文自动迁移）
-        versionCode = 20
-        versionName = "0.20"
+        // [修复 2026-10-19] v21：巡检重排防抖（签名未变 2 分钟内不重排）；sync 时服务已运行则不再重复 start/复活闹钟
+        versionCode = 21
+        versionName = "0.21"
     }
 
     buildTypes {

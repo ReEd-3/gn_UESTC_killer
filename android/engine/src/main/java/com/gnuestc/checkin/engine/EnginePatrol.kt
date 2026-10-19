@@ -88,13 +88,34 @@ object EnginePatrol {
      *  - 未启用/未登录时仅跳过（不破坏已排好的链）；显式关闭时才整体取消
      */
     fun scheduleAll(context: Context) {
-        if (!EnginePrefs.isKeepAliveEnabled(context) || EnginePrefs.getCookie(context).isBlank()) return
+        if (!EnginePrefs.isKeepAliveEnabled(context)) return
+        val cookie = EnginePrefs.getCookie(context)
+        if (cookie.isBlank()) return
+
+        // [修复 2026-10-19] 重排防抖：状态签名未变且 2 分钟内刚排过 → 跳过整轮重排。
+        // 否则每次 sync / 服务启动 / 巡检触发都会把锚点+今日网格+明日网格（≈40 条 setAlarmClock）全量重发。
+        val now = System.currentTimeMillis()
+        val sig = buildString {
+            append(cookie.hashCode()).append('|')
+            append(EnginePrefs.getLat(context)).append('|')
+            append(EnginePrefs.getLng(context)).append('|')
+            append(EnginePrefs.getWinStart(context)).append('|')
+            append(EnginePrefs.getWinEnd(context)).append('|')
+            append(EnginePrefs.getLastSuccessDate(context))
+        }
+        if (sig == EnginePrefs.getLastScheduleSig(context) &&
+            now - EnginePrefs.getLastScheduleAt(context) < 2 * 60_000L
+        ) {
+            return
+        }
+        EnginePrefs.setLastScheduleSig(context, sig)
+        EnginePrefs.setLastScheduleAt(context, now)
+
         val am = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
 
         // 锚点
         armAt(am, anchorPi(context), nextTriggerTime(context))
 
-        val now = System.currentTimeMillis()
         val today = fmtDate().format(Date(now))
         val startToday = windowBoundary(0, now, EnginePrefs.getWinStart(context))
         val endToday = windowBoundary(0, now, EnginePrefs.getWinEnd(context))
@@ -121,6 +142,8 @@ object EnginePatrol {
         runCatching { am.cancel(anchorPi(context)) }
         cancelSlots(context, RC_SLOT_A)
         cancelSlots(context, RC_SLOT_B)
+        // [修复 2026-10-19] 让重排防抖签名失效：确保"关闭后立即重新开启"时必定重排
+        EnginePrefs.setLastScheduleSig(context, "")
     }
 
     /**

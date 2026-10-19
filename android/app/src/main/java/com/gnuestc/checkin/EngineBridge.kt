@@ -223,8 +223,16 @@ object EngineBridge {
      * 开关 / 下次打卡文案 / 会话 Cookie / 坐标 / 打卡窗口。
      * 指令经签名级权限保护的显式广播发送（仅同签名的引擎可接收）。
      */
+    /** [修复 2026-10-19] 轻量"是否已安装"检查：只查包信息，不读 APK、不做哈希
+     *（syncState 会在 onResume 等高频路径调用；query() 的哈希比对只留给"检测更新"用） */
+    fun isInstalled(context: Context): Boolean = runCatching {
+        @Suppress("DEPRECATION")
+        context.packageManager.getPackageInfo(ENGINE_PACKAGE, 0)
+        true
+    }.getOrDefault(false)
+
     fun syncState(context: Context) {
-        if (!query(context).installed) return
+        if (!isInstalled(context)) return
         val enabled = Prefs.isServiceEnabled(context) && Prefs.getCookie(context).isNotBlank()
         sendCommand(context, "sync") {
             it.putExtra("enabled", enabled)

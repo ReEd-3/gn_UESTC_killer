@@ -25,6 +25,9 @@ object EnginePrefs {
     private const val KEY_BATTERY_PROMPT_STAGE = "battery_prompt_stage"
     // [v14] 测试闹钟轮换 requestCode
     private const val KEY_TEST_ALARM_RC = "test_alarm_rc"
+    // [修复 2026-10-19] 巡检重排防抖：状态签名 + 上次重排时间
+    private const val KEY_LAST_SCHED_SIG = "last_schedule_sig"
+    private const val KEY_LAST_SCHED_AT = "last_schedule_at"
 
     /** 打卡窗口默认值与主应用一致（21:05–23:30） */
     const val DEFAULT_WIN_START = 1265
@@ -118,4 +121,14 @@ object EnginePrefs {
     fun getTestAlarmRc(c: Context): Int = sp(c).getInt(KEY_TEST_ALARM_RC, 0)
 
     fun setTestAlarmRc(c: Context, v: Int) = sp(c).edit().putInt(KEY_TEST_ALARM_RC, v).apply()
+
+    // ── [修复 2026-10-19] 巡检重排防抖 ─────────────────────────
+
+    fun getLastScheduleSig(c: Context): String = sp(c).getString(KEY_LAST_SCHED_SIG, "").orEmpty()
+
+    fun setLastScheduleSig(c: Context, v: String) = sp(c).edit().putString(KEY_LAST_SCHED_SIG, v).apply()
+
+    fun getLastScheduleAt(c: Context): Long = sp(c).getLong(KEY_LAST_SCHED_AT, 0L)
+
+    fun setLastScheduleAt(c: Context, v: Long) = sp(c).edit().putLong(KEY_LAST_SCHED_AT, v).apply()
 }

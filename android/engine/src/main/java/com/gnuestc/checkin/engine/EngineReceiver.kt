@@ -78,10 +78,15 @@ class EngineReceiver : BroadcastReceiver() {
                     EnginePrefs.setLastSuccessDate(context, today)
                 }
                 if (enabled) {
-                    EngineKeepAliveService.start(context)
-                    // [v12] 若广播唤不醒（后台启动限制），3 秒后用 exact alarm 再试一次（自带临时白名单）
-                    EnginePatrol.scheduleRevive(context)
-                    // [v7/v8] 安排巡检链（窗口内每 5 分钟一个巡检点，网格冗余）
+                    // [修复 2026-10-19] 服务已在运行则不再重复 start、也不再挂"3 秒复活"闹钟：
+                    // 频繁 sync 时避免反复拉起服务、反复安排唤醒（顺带消除"打开应用即触发一次引擎巡检提交"的副作用）；
+                    // 仅当进程被冻结/回收（running=false）时才需要 start + 复活兜底
+                    if (!EngineKeepAliveService.running) {
+                        EngineKeepAliveService.start(context)
+                        // [v12] 若广播唤不醒（后台启动限制），3 秒后用 exact alarm 再试一次（自带临时白名单）
+                        EnginePatrol.scheduleRevive(context)
+                    }
+                    // [v7/v8] 安排巡检链（窗口内每 5 分钟一个巡检点，网格冗余）；scheduleAll 自带签名防抖
                     EnginePatrol.scheduleAll(context)
                 } else {
                     EngineKeepAliveService.stop(context)
