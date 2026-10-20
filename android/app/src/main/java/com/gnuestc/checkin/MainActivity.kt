@@ -602,17 +602,23 @@ class MainActivity : AppCompatActivity() {
     /**
      * [修复 2026-10-19] 解析 /today 响应：
      *  - 返回 true/false = 服务端明确给出是否已打卡；
-     *  - 返回 null = 无法判定（会话失效/响应异常；HTTP 成功后 code!=0 或带登录错误 msg 且无 data）。
-     * 网络失败请在调用侧通过 runCatching/判空处理，不要当作"未打卡"。
+     *  - 返回 null = 无法判定。
+     * [修复 2026-10-20] 细化：只有"像会话失效"的响应才返回 null（调用方据此提示重新登录）；
+     * 其它业务拒绝（如“请从微信小程序重新进入打卡应用后提交”）由 isSessionInvalidMsg 区分，
+     * 不需要据此判为登录过期（此前会误报“登录已过期”）。
      */
     private fun parseTodayChecked(resp: org.json.JSONObject): Boolean? {
         val data = resp.optJSONObject("data")
-        val msg = resp.optString("msg")
-        // 无 data 且 code!=0（或 msg 明确提示登录问题）→ 响应异常，不可据此判定
-        if (data == null && (resp.optInt("code", 0) != 0 || msg.contains("登录") || msg.contains("过期"))) {
-            return null
-        }
-        return data?.optString("recordStatusCode") == "CHECKED_IN"
+        if (data != null) return data.optString("recordStatusCode") == "CHECKED_IN"
+        // 无 data → 无法判定；由调用方用 isSessionInvalidMsg 决定是否提示重新登录
+        return null
+    }
+
+    /** [修复 2026-10-20] 响应是否属于「会话失效」（只看明确的登录类措辞） */
+    private fun isSessionInvalidMsg(msg: String): Boolean {
+        if (msg.isBlank()) return false
+        val keys = listOf("登录无效", "未登录", "请先登录", "登录已过期", "会话已失效", "session", "token")
+        return keys.any { msg.contains(it, ignoreCase = true) }
     }
 
     /**
@@ -636,12 +642,22 @@ class MainActivity : AppCompatActivity() {
             } ?: return@launch // 网络失败：不做判定
             val decided = parseTodayChecked(resp)
             if (decided == null) {
-                // 会话失效（或其它服务端拒绝）：只提示一次
-                if (!sessionInvalidPrompted) {
-                    sessionInvalidPrompted = true
-                    LogStore.append(this@MainActivity, "[系统] 登录态失效：${resp.optString("msg")}")
-                    Toast.makeText(this@MainActivity, "登录已过期，请重新登录", Toast.LENGTH_LONG).show()
-                    refreshStatus()
+                // [修复 2026-10-20] 只有明确的会话失效才提示重新登录；其它业务拒绝（如来源校验）
+                // 仅记日志，避免把“服务端拒绝打卡”误报成“登录已过期”
+                val msg = resp.optString("msg")
+                if (isSessionInvalidMsg(msg)) {
+                    if (!sessionInvalidPrompted) {
+                        sessionInvalidPrompted = true
+                        LogStore.append(this@MainActivity, "[系统] 登录态失效：$msg")
+                        Toast.makeText(this@MainActivity, "登录已过期，请重新登录", Toast.LENGTH_LONG).show()
+                        refreshStatus()
+                    }
+                } else {
+                    LogStore.append(
+                        this@MainActivity,
+                        "[系统] 状态查询被服务端拒绝（非登录问题）：" +
+                            "code=" + resp.optInt("code", -1) + " msg=" + msg
+                    )
                 }
                 return@launch
             }

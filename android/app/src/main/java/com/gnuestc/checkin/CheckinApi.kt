@@ -94,8 +94,19 @@ class CheckinApi(cookie: String) {
         const val FENCE_RADIUS_M = 150.0
         const val REVERSE_GEOCODE = "四川省成都市郫都区银杏大道"
 
-        /** 手机 UA，避免使用 OkHttp/脚本类默认 UA */
-        private const val USER_AGENT =
-            "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Mobile Safari/537.36"
+        /**
+         * [修复 2026-10-20] 服务端新增「来源校验」：返回
+         * 「请从微信小程序重新进入打卡应用后提交」。
+         * 依据 H5 前端代码（main.js）：它用
+         *   window.__wxjs_environment === "miniprogram" || UA 含 "miniprogram"
+         * 判断是否处于小程序环境 → 服务端同样有此校验。
+         * 修复：在 UA 末尾补充微信小程序 WebView 标识（同时保留 Chrome 主体，避免其它校验异常）。
+         * 注意：同时保留平台头 platform=h5（小程序内也是 h5 页面，与前端拦截器一致）。
+         */
+        const val USER_AGENT =
+            "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) " +
+                "Version/4.0 Chrome/125.0.0.0 Mobile Safari/537.36 " +
+                "MicroMessenger/8.0.49.2600(0x28003133) WeChat/arm64 Weixin NetType/WIFI " +
+                "Language/zh_CN ABI/arm64 miniProgram/wx0000000000000000/0"
     }
 }

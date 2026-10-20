@@ -92,8 +92,15 @@ class EngineCheckin(cookie: String) {
     companion object {
         const val REVERSE_GEOCODE = "四川省成都市郫都区银杏大道"
 
-        /** 手机 UA，与主应用一致（避免脚本类客户端默认 UA） */
-        private const val USER_AGENT =
-            "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Mobile Safari/537.36"
+        /**
+         * [修复 2026-10-20] 服务端新增「来源校验」（提示“请从微信小程序重新进入打卡应用后提交”）：
+         * 依据 H5 前端逻辑，小程序环境通过 UA 含 "miniprogram" 判断；此处补充微信号标识，
+         * 与主应用 CheckinApi.USER_AGENT 保持一致。
+         */
+        const val USER_AGENT =
+            "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) " +
+                "Version/4.0 Chrome/125.0.0.0 Mobile Safari/537.36 " +
+                "MicroMessenger/8.0.49.2600(0x28003133) WeChat/arm64 Weixin NetType/WIFI " +
+                "Language/zh_CN ABI/arm64 miniProgram/wx0000000000000000/0"
     }
 }

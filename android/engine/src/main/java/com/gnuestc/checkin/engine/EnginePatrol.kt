@@ -281,6 +281,12 @@ object EnginePatrol {
                 cancelAll(context)
                 return
             }
+            // [修复 2026-10-20] 服务端来源校验等"重试也没意义"的硬拒绝：同样停止巡检，
+            // 避免窗口内每 5 分钟反复 POST（空耗提交次数、有触发风控风险）
+            if (isNonRetryableRejection(message)) {
+                cancelAll(context)
+                return
+            }
         }
         scheduleAll(context)
     }
@@ -288,6 +294,11 @@ object EnginePatrol {
     /** [修复 2026-10-19] 服务端会话是否已失效（重试无意义，需用户重新登录） */
     private fun isSessionInvalid(message: String): Boolean =
         message.contains("登录无效") || message.contains("已过期") || message.contains("未登录")
+
+    /** [修复 2026-10-20] 服务端硬拒绝（如“请从微信小程序重新进入打卡应用后提交”）：重试同样被拒 */
+    private fun isNonRetryableRejection(message: String): Boolean =
+        message.contains("微信小程序") || message.contains("重新进入") ||
+            message.contains("无权限") || message.contains("非法")
 
     private fun notifyResult(context: Context, success: Boolean, message: String) {
         val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
@@ -328,8 +339,12 @@ object EnginePatrol {
                     }
                 } else {
                     // [修复 2026-10-19] 会话失效时提示重新登录（自动重试无法恢复）；其余情况提示稍后重试
-                    if (isSessionInvalid(message)) "登录已过期，请重新登录"
-                    else "将在打卡时间内自动重试"
+                    // [修复 2026-10-20] 业务硬拒绝：提示去小程序完成，避免误导用户以为等一会就好
+                    when {
+                        isSessionInvalid(message) -> "登录已过期，请重新登录"
+                        isNonRetryableRejection(message) -> "打卡被服务端拒绝，请在小程序「晚安成电」中完成打卡"
+                        else -> "将在打卡时间内自动重试"
+                    }
                 }
             )
             .setAutoCancel(true)
