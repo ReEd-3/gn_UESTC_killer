@@ -662,6 +662,20 @@ class MainActivity : AppCompatActivity() {
                 return@launch
             }
             sessionInvalidPrompted = false
+            // [修复 2026-10-20] 探测确认服务端响应正常 → 若卡片上还留着遗留的"登录类"错误，
+            // 清理它（否则会出现"已登录却一直显示登录失败"的误导）
+            run {
+                val last = Prefs.getLastResult(this@MainActivity).orEmpty()
+                val staleLoginError = last.contains("登录已过期") || last.contains("登录失败") ||
+                    last.contains("未登录") || last.contains("登录无效")
+                if (staleLoginError) {
+                    Prefs.setLastResult(
+                        this@MainActivity,
+                        if (decided) "今日已完成打卡（服务端确认）" else "登录正常，等待自动打卡"
+                    )
+                    refreshStatus()
+                }
+            }
             val localChecked = Prefs.isCheckedToday(this@MainActivity)
             if (decided && !localChecked) {
                 Prefs.markCheckedToday(this@MainActivity)

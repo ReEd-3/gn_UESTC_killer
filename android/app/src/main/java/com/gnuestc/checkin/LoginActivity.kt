@@ -184,7 +184,12 @@ class LoginActivity : AppCompatActivity() {
                         val api = CheckinApi(cookie)
                         RemoteSync.refreshLocation(this@LoginActivity, api)
                         RemoteSync.refreshSchedule(this@LoginActivity, api)
-                        resp.optJSONObject("data")?.optString("studentName").orEmpty()
+                        // [修复 2026-10-20] 原实现用 studentName 作为"验证成功"的凭据：
+                        // 若服务端未返回姓名（或字段变更）就会被误判为"登录失败"，即使会话完全有效。
+                        // 改为：code==0 且返回了 data 即视为登录成功，姓名仅用于展示。
+                        val data = resp.optJSONObject("data")
+                        if (data == null) "ERR:服务端未返回账号信息"
+                        else data.optString("studentName").ifBlank { "（已登录）" }
                     } else {
                         "ERR:服务端返回 code=$code ${resp.optString("msg")}"
                     }
@@ -208,6 +213,9 @@ class LoginActivity : AppCompatActivity() {
                         "[登录] 已同步时间窗口（${Prefs.windowLabel(this@LoginActivity)}）"
                     )
                 }
+                // [修复 2026-10-20] 登录成功即刷新「最近打卡」结果，避免卡片继续展示上一次遗留的
+                // “登录已过期/登录失败”等陈旧信息（用户反馈：已登录却显示登录失败）
+                Prefs.setLastResult(this@LoginActivity, "登录成功，等待自动打卡")
                 // 立即安排：未到点排窗口开始时间；窗口内则 1 分钟后尽快补打
                 AlarmScheduler.ensureScheduled(this@LoginActivity)
                 // [修复 2026-10-19] 登录成功立即把新会话同步给引擎：

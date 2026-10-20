@@ -21,6 +21,9 @@ object LogStore {
         runCatching {
             val ts = SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date())
             val entry = "[$ts] $line"
+            // [诊断 2026-10-20] 调试版同时输出到 logcat（日志文件是加密的，adb 读不到），
+            // 便于用 adb logcat 直接定位问题；正式版不输出
+            if (BuildConfig.DEBUG) android.util.Log.d("GNCheckin", entry)
             val sp = c.getSharedPreferences(NAME, Context.MODE_PRIVATE)
             // [加密改造 2026-10-17] 原明文读写实现保留备查：
             // val lines = (sp.getString(KEY_LOG, "").orEmpty().split('\n') + entry)
