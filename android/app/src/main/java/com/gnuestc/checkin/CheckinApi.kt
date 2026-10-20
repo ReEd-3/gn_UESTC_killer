@@ -65,6 +65,10 @@ class CheckinApi(cookie: String) {
         val req = Request.Builder()
             .url(base + path)
             .header("platform", "h5")
+            // [关键修复 2026-10-20] 服务端校验的是【HTTP 请求头】的 UA（code=46001
+            // "请从微信小程序重新进入打卡应用后提交"）：此前只在 body.userAgent 里写了 UA，
+            // 实际请求头是 OkHttp 默认值 okhttp/x.x，因此被拒。
+            .header("User-Agent", USER_AGENT)
             .header("Cookie", cookieHeader)
             .get()
             .build()
@@ -78,6 +82,8 @@ class CheckinApi(cookie: String) {
         val req = Request.Builder()
             .url(base + path)
             .header("platform", "h5")
+            // [关键修复 2026-10-20] 同 get()：请求头 UA 必须是小程序 UA，否则 code=46001
+            .header("User-Agent", USER_AGENT)
             .header("Cookie", cookieHeader)
             .post(body.toString().toRequestBody(jsonType))
             .build()

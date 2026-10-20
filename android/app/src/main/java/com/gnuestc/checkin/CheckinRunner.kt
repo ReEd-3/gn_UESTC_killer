@@ -128,10 +128,10 @@ object CheckinRunner {
             // 重试同样会被拒，停止重试避免空耗提交次数/触发风控
             isNonRetryableRejection(result)
 
-    /** [修复 2026-10-20] 服务端"重试也没意义"的拒绝（来源校验等） */
+    /** [修复 2026-10-20] 服务端硬拒绝（如 code=46001“请从微信小程序重新进入打卡应用后提交”）：重试同样被拒 */
     fun isNonRetryableRejection(result: String): Boolean =
         result.contains("微信小程序") || result.contains("重新进入") ||
-            result.contains("无权限") || result.contains("非法")
+            result.contains("无权限") || result.contains("非法") || result.contains("46001")
 
     /**
      * [文案 2026-10-19] 「用户向」文案：通知 / 首页「最近打卡」/ 前台 Toast 使用；

@@ -67,6 +67,8 @@ class EngineCheckin(cookie: String) {
         val req = Request.Builder()
             .url(base + path)
             .header("platform", "h5")
+            // [关键修复 2026-10-20] 请求头 UA 必须是小程序 UA（否则 code=46001）
+            .header("User-Agent", USER_AGENT)
             .header("Cookie", cookieHeader)
             .get()
             .build()
@@ -80,6 +82,8 @@ class EngineCheckin(cookie: String) {
         val req = Request.Builder()
             .url(base + path)
             .header("platform", "h5")
+            // [关键修复 2026-10-20] 请求头 UA 必须是小程序 UA（否则 code=46001）
+            .header("User-Agent", USER_AGENT)
             .header("Cookie", cookieHeader)
             .post(body.toString().toRequestBody(jsonType))
             .build()
