@@ -106,6 +106,15 @@ object EngineBridge {
         }.getOrNull()
     }
 
+    /** [修复 2026-10-20] 轻量查询已安装版本号（无则 -1；不读 APK、不做哈希） */
+    fun installedVersionCode(context: Context): Int = runCatching {
+        @Suppress("DEPRECATION")
+        context.packageManager.getPackageInfo(ENGINE_PACKAGE, 0).versionCode
+    }.getOrDefault(-1)
+
+    /** [修复 2026-10-20] 内嵌引擎的版本号（供安装回执判断"是否已是目标版本"） */
+    fun bundledVersionCodeOrZero(context: Context): Int = bundledVersionCode(context) ?: 0
+
     private fun bundledVersionCode(context: Context): Int? {
         val f = extractBundledApk(context) ?: return null
         @Suppress("DEPRECATION")

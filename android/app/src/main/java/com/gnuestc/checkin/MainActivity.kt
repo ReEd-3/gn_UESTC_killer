@@ -1175,6 +1175,22 @@ class MainActivity : AppCompatActivity() {
 
     /** 安装流程：先检查「安装未知应用」权限，再拉起系统安装器 */
     private fun installEngineFlow() {
+        // [修复 2026-10-20] 已是最新版本时不再重复发起安装：
+        // 重复安装会被系统拒（同版本），并产生一个“失败”回执 → 用户看到“安装失败”但其实已装好
+        val cur = EngineBridge.query(this)
+        if (cur.installed && !cur.needsInstall) {
+            Toast.makeText(
+                this,
+                "后台组件已是最新版本（v${cur.installedVersionCode}）",
+                Toast.LENGTH_SHORT
+            ).show()
+            // 顺带确保已激活（首次安装后可能需要激活一次）
+            if (Prefs.getEngineActivatedVersion(this) != cur.installedVersionCode) {
+                EngineBridge.activateEngine(this)
+                Prefs.setEngineActivatedVersion(this, cur.installedVersionCode)
+            }
+            return
+        }
         if (!EngineBridge.canInstall(this)) {
             pendingUnknownSources = true // [双包 2026-10-18] 授权返回后自动继续安装
             Toast.makeText(this, R.string.engine_need_unknown_source, Toast.LENGTH_LONG).show()

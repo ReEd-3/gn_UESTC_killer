@@ -34,12 +34,33 @@ class EngineInstallReceiver : BroadcastReceiver() {
             }
             else -> {
                 val msg = intent.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE).orEmpty()
-                LogStore.append(
-                    context,
-                    "[引擎] 安装失败（status=$status）${if (msg.isNotBlank()) "：$msg" else ""}"
-                )
-                runCatching {
-                    Toast.makeText(context, "安装失败，请重试（详情见运行日志）", Toast.LENGTH_LONG).show()
+                // [修复 2026-10-20] 良性失败：核对当前实际安装版本。
+                // 实测（ColorOS）会出现“多个安装会话并存”：其中一个被拒（statusCode=-115
+                // User rejected permissions / 用户取消二次弹窗），而实际已安装成功，
+                // 此前会因此况弹“安装失败”，与事实不符。
+                val installed = EngineBridge.installedVersionCode(context)
+                val bundled = EngineBridge.bundledVersionCodeOrZero(context)
+                if (installed > 0 && bundled > 0 && installed >= bundled) {
+                    LogStore.append(
+                        context,
+                        "[引擎] 安装会话返回 status=$status（$msg），但当前已是 v$installed" +
+                            "（目标 v$bundled），按成功处理"
+                    )
+                    runCatching {
+                        Toast.makeText(
+                            context,
+                            "后台组件已就绪（v$installed）",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    }
+                } else {
+                    LogStore.append(
+                        context,
+                        "[引擎] 安装失败（status=$status）${if (msg.isNotBlank()) "：$msg" else ""}"
+                    )
+                    runCatching {
+                        Toast.makeText(context, "安装失败，请重试（详情见运行日志）", Toast.LENGTH_LONG).show()
+                    }
                 }
             }
         }
