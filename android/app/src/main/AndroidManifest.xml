@@ -50,14 +50,18 @@
             android:exported="false" />
 
         <!-- [新增 2026-10-18] 常驻前台服务：低优先级常驻通知，降低被系统静默回收的概率 -->
+        <!-- [review 2026-10-21] 已退役：主应用的常驻前台服务不再使用（常驻只保留引擎侧那一条通知）。
+             它的通知与引擎常驻通知重复，且引擎被划卡杀不死的本体已经在引擎包里。
+             类文件保留备查，确认无问题后可一并删除。
         <service
             android:name=".KeepAliveService"
             android:exported="false"
             android:foregroundServiceType="specialUse">
             <property
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
-                android:value="keep check-in scheduled task reliable" />
+                android:value="keep daily check-in scheduled task reliable" />
         </service>
+        -->
 
         <!-- 闹钟触发的打卡执行器，仅通过应用内 PendingIntent 调用 -->
         <receiver

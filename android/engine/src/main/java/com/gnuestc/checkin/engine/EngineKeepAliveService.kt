@@ -206,6 +206,15 @@ class EngineKeepAliveService : Service() {
             }
         }
 
+        /**
+         * [review 2026-10-21] 刷新常驻通知（"下次打卡"文案 / 会话有效性变化时由 sync 调用）。
+         * 服务未运行则空操作（真正的启动走 start()）。
+         */
+        fun refresh(context: Context) {
+            val svc = instance ?: return
+            runCatching { svc.startForeground(NOTIFICATION_ID, buildNotification(svc)) }
+        }
+
         private fun buildNotification(context: Context): Notification {
             // 点击常驻通知 → 打开主应用
             // [修复 2026-10-18] 原实现的兜底是"空 Intent"，点击无任何反应；
@@ -221,15 +230,18 @@ class EngineKeepAliveService : Service() {
             )
             val next = EnginePrefs.getNextText(context)
             // [文案 2026-10-19] 正式版定稿：去掉"引擎/守护"等内部用语
-            val text = if (next.isBlank()) {
-                "点击打开应用"
-            } else {
-                "下次打卡：$next（点击打开应用）"
+            // [review 2026-10-21] 会话失效时如实告知，避免明明打不了卡却显示"运行中"
+            val sessionValid = EnginePrefs.isSessionValid(context)
+            val title = if (sessionValid) "自动打卡运行中" else "登录已失效，请打开应用重新登录"
+            val text = when {
+                !sessionValid -> "后台巡检已暂停（点击打开应用）"
+                next.isBlank() -> "点击打开应用"
+                else -> "下次打卡：$next（点击打开应用）"
             }
             return NotificationCompat.Builder(context, CHANNEL_ID)
                 .setSmallIcon(R.drawable.ic_stat_checkin)
                 .setLargeIcon(EngineIcon.mainAppLarge(context))
-                .setContentTitle("自动打卡运行中")
+                .setContentTitle(title)
                 .setContentText(text)
                 .setOngoing(true) // 不可划掉
                 .setOnlyAlertOnce(true)

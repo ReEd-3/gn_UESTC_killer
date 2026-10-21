@@ -34,6 +34,9 @@ class CheckinReceiver : BroadcastReceiver() {
                 // 打卡结果与下一次定时也不会丢
                 CheckinRunner.rescheduleAfterRun(appContext, result)
                 CheckinRunner.syncExtras(appContext)
+                // [review 2026-10-21] 把最新状态（今日已完成 / 会话是否失效）同步给引擎：
+                // 否则闹钟路径打完卡后引擎不知道，可能再跑一轮巡检；会话失效时也应让引擎暂停
+                runCatching { EngineBridge.syncState(appContext) }
                 // [原实现保留备查]
                 // if (CheckinRunner.isFinal(result)) {
                 //     AlarmScheduler.scheduleDaily(appContext)

@@ -27,19 +27,24 @@ object EngineIcon {
     @Volatile
     private var cachedLarge: Bitmap? = null
 
+    /** [review 2026-10-21] 失败时间戳：原实现用永久失败标记，主应用正在更新等瞬时失败后
+     *  整个引擎进程生命周期都不会再尝试；改为 5 分钟后允许重试 */
     @Volatile
-    private var loadFailed = false
+    private var lastFailAt = 0L
+
+    private const val RETRY_GAP_MS = 5 * 60_000L
 
     /** 主应用图标位图（用作通知大图标）；失败返回 null */
     fun mainAppLarge(context: Context): Bitmap? {
         cachedLarge?.let { return it }
-        if (loadFailed) return null
+        val now = System.currentTimeMillis()
+        if (now - lastFailAt < RETRY_GAP_MS) return null
         val bmp = runCatching {
             context.packageManager
                 .getApplicationIcon(MAIN_PACKAGE)
                 .toBitmap(LARGE_ICON_PX, LARGE_ICON_PX)
         }.getOrNull()
-        if (bmp != null) cachedLarge = bmp else loadFailed = true
+        if (bmp != null) cachedLarge = bmp else lastFailAt = now
         return bmp
     }
 }

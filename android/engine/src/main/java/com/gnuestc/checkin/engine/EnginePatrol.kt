@@ -32,6 +32,9 @@ object EnginePatrol {
     private const val MAX_SLOTS = 40
     private const val INTERVAL_MS = 5 * 60_000L
     private const val MIN_RETRY_GAP_MS = 90_000L
+    // [review 2026-10-21] 重排防抖窗口：原为 2 分钟，但巡检网格每 5 分钟一拍、永远超过它，
+    // 导致每次巡检触发都会把锚点+双网格（约 59 条 setAlarmClock）全量重发一次。改为 10 分钟后即真正生效。
+    private const val SCHEDULE_DEBOUNCE_MS = 10 * 60_000L
 
     private const val CHANNEL_ID = "engine_checkin"
     private const val NOTIFY_SUCCESS = 3005
@@ -91,6 +94,9 @@ object EnginePatrol {
         if (!EnginePrefs.isKeepAliveEnabled(context)) return
         val cookie = EnginePrefs.getCookie(context)
         if (cookie.isBlank()) return
+        // [review 2026-10-21] 主应用已判定会话失效：排了也只会 POST 失败，
+        // 先停下等用户重新登录（登录成功后主应用 sync → 重新排链）
+        if (!EnginePrefs.isSessionValid(context)) return
 
         // [修复 2026-10-19] 重排防抖：状态签名未变且 2 分钟内刚排过 → 跳过整轮重排。
         // 否则每次 sync / 服务启动 / 巡检触发都会把锚点+今日网格+明日网格（≈40 条 setAlarmClock）全量重发。
@@ -104,7 +110,7 @@ object EnginePatrol {
             append(EnginePrefs.getLastSuccessDate(context))
         }
         if (sig == EnginePrefs.getLastScheduleSig(context) &&
-            now - EnginePrefs.getLastScheduleAt(context) < 2 * 60_000L
+            now - EnginePrefs.getLastScheduleAt(context) < SCHEDULE_DEBOUNCE_MS
         ) {
             return
         }
@@ -204,6 +210,8 @@ object EnginePatrol {
         if (!EnginePrefs.isKeepAliveEnabled(context)) return
         val cookie = EnginePrefs.getCookie(context)
         if (cookie.isBlank()) return
+        // [review 2026-10-21] 会话已失效：不再发起任何请求（避免空耗提交配额/触发风控）
+        if (!EnginePrefs.isSessionValid(context)) return
 
         // [v12] 无论是否在窗口内：任何一次巡检触发都顺便保活常驻服务
         //（exact alarm 广播会获得临时白名单，允许此时启动前台服务）

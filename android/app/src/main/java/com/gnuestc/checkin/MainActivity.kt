@@ -291,6 +291,16 @@ class MainActivity : AppCompatActivity() {
         resumeEngineInstallFlow()
     }
 
+    /**
+     * [review 2026-10-21] 更新会话有效性，仅在值真的变化时才同步引擎：
+     * 引擎侧据此暂停/恢复巡检，而平时探测成功不应反复发广播。
+     */
+    private fun markSessionValid(valid: Boolean) {
+        if (Prefs.isSessionValid(this) == valid) return
+        Prefs.setSessionValid(this, valid)
+        syncEngineStateNow()
+    }
+
     /** 刷新所有状态展示 */
     private fun refreshStatus() {
         val hasCookie = Prefs.getCookie(this).isNotBlank()
@@ -404,6 +414,8 @@ class MainActivity : AppCompatActivity() {
         append(Prefs.getNextTrigger(this@MainActivity)).append('|')
         append(Prefs.isCheckedToday(this@MainActivity)).append('|')
         append(Prefs.isServiceEnabled(this@MainActivity)).append('|')
+        // [review 2026-10-21] 会话有效性变化也要重发：引擎据此暂停/恢复巡检
+        append(Prefs.isSessionValid(this@MainActivity)).append('|')
         append(Prefs.getWindowStartMinute(this@MainActivity)).append('|')
         append(Prefs.getWindowEndMinute(this@MainActivity)).append('|')
         append(Prefs.getLocationLat(this@MainActivity)).append('|')
@@ -699,7 +711,8 @@ class MainActivity : AppCompatActivity() {
                 val msg = resp.optString("msg")
                 if (isSessionInvalidMsg(msg)) {
                     // [修复 2026-10-21] 标记会话失效 → 账号状态显示“登录已失效”
-                    Prefs.setSessionValid(this@MainActivity, false)
+                    // [review 2026-10-21] 变化时立即同步引擎（引擎据此暂停巡检）
+                    markSessionValid(false)
                     if (!sessionInvalidPrompted) {
                         sessionInvalidPrompted = true
                         LogStore.append(this@MainActivity, "[系统] 登录态失效：$msg")
@@ -717,7 +730,8 @@ class MainActivity : AppCompatActivity() {
             }
             sessionInvalidPrompted = false
             // [修复 2026-10-21] 服务端响应正常 → 会话有效
-            Prefs.setSessionValid(this@MainActivity, true)
+            // [review 2026-10-21] 变化时立即同步引擎（引擎据此恢复巡检）
+            markSessionValid(true)
             // [修复 2026-10-20] 探测确认服务端响应正常 → 若卡片上还留着遗留的"登录类"错误，
             // 清理它（否则会出现"已登录却一直显示登录失败"的误导）
             run {
@@ -1085,7 +1099,8 @@ class MainActivity : AppCompatActivity() {
         val notifMainOk = notifGranted && nm.areNotificationsEnabled()
         // [修复 2026-10-19] 双包后"通知能力"由两个应用分别持有：打卡结果/常驻通知由「后台组件」发出。
         // 此前只查本应用 → 用户给过后台组件的通知权限时，这里会显示"未开启"（用户反馈的"给了却说没给"）。
-        val engineInstalled = EngineBridge.query(this).installed
+        // [review 2026-10-21] 这里只需要"是否已安装"，用轻量模式（不做整包哈希）
+        val engineInstalled = EngineBridge.query(this, deep = false).installed
         val engineNotifGranted = Build.VERSION.SDK_INT < 33 || !engineInstalled || runCatching {
             packageManager.checkPermission(
                 Manifest.permission.POST_NOTIFICATIONS, EngineBridge.ENGINE_PACKAGE
@@ -1172,14 +1187,19 @@ class MainActivity : AppCompatActivity() {
     /** 启动时检测：未安装/需更新 → 引导安装（首次引导未看过时先不弹，避免弹窗叠加） */
     private fun maybePromptEngineInstall() {
         if (!Prefs.isFirstRunGuideShown(this)) return
-        val info = EngineBridge.query(this)
-        if (!info.needsInstall) return
-        MaterialAlertDialogBuilder(this)
-            .setTitle(R.string.engine_prompt_title)
-            .setMessage(R.string.engine_prompt_msg)
-            .setPositiveButton(R.string.engine_install) { _, _ -> installEngineFlow() }
-            .setNegativeButton(R.string.map_cancel, null)
-            .show()
+        // [review 2026-10-21] 性能：query() 在版本号相同时会对内嵌 APK 做整包哈希，
+        // 直接放在 onCreate 主线程会在启动时卡一下 → 放后台线程算完再弹窗
+        lifecycleScope.launch {
+            val info = withContext(Dispatchers.IO) { EngineBridge.query(this@MainActivity) }
+            if (isFinishing || isDestroyed) return@launch
+            if (!info.needsInstall) return@launch
+            MaterialAlertDialogBuilder(this@MainActivity)
+                .setTitle(R.string.engine_prompt_title)
+                .setMessage(R.string.engine_prompt_msg)
+                .setPositiveButton(R.string.engine_install) { _, _ -> installEngineFlow() }
+                .setNegativeButton(R.string.map_cancel, null)
+                .show()
+        }
     }
 
     /** 后台组件（引擎）菜单：安装/更新 + 连通与测试指令 */
@@ -1297,7 +1317,9 @@ class MainActivity : AppCompatActivity() {
      *  2) 引擎已安装但尚未激活过 → 拉起引导页（解除 stopped 状态 + 申请权限）
      */
     private fun resumeEngineInstallFlow() {
-        val info = EngineBridge.query(this)
+        // [review 2026-10-21] 性能：onResume 高频路径用轻量模式（只看版本号，不整包哈希），
+        // 内容哈希留给用户主动打开「后台组件」菜单时再算
+        val info = EngineBridge.query(this, deep = false)
         if (pendingUnknownSources) {
             pendingUnknownSources = false
             if (EngineBridge.canInstall(this)) installEngineFlow()
@@ -1342,7 +1364,9 @@ class MainActivity : AppCompatActivity() {
         }
         if (!info.installed) return
         // [双包 2026-10-18] 先同步状态再激活：确保引导页启动常驻服务时开关已就绪
-        syncEngineState()
+        // [review 2026-10-21] 已注释：onResume 开头已有签名去重的 syncEngineStateIfChanged()，
+        // 这里再无条件发一次会造成每次回前台都多一条广播 + 引擎侧 Keystore 重新加密写盘
+        // syncEngineState()
         // [v7 巡检链] 打开应用即请求引擎补巡检一次（引擎内部 90 秒节流，避免频繁打开反复提交）
         EngineBridge.sendCommand(this, "patrol_now")
         // [修复 v12] 每次打开应用做一次"活动唤醒"：广播无法唤醒被系统冻结/停掉的引擎时，

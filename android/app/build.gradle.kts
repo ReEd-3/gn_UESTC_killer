@@ -13,9 +13,9 @@ android {
         applicationId = "com.gnuestc.checkin"
         minSdk = 26
         targetSdk = 35
-        // [发布 2026-10-19] 0.4.3（vc8）：文案定稿版；此后 debug 与 release 共用同一版本号
-        versionCode = 8
-        versionName = "0.4.3"
+        // [发布 2026-10-21] 0.4.4（vc9）：引擎 v26；通知图标修正 + review 修复；debug 与 release 共用版本号
+        versionCode = 9
+        versionName = "0.4.4"
     }
 
     buildTypes {
@@ -46,6 +46,13 @@ android {
         getByName("main") {
             assets.srcDir(layout.buildDirectory.dir("embeddedEngine"))
         }
+    }
+
+    // [review 2026-10-21] 内嵌引擎 APK 不压缩：
+    // 好处：运行时可先用 AssetFileDescriptor.length 取长度（不必整包读进内存）就能判断是否需要重新提取；
+    // 安装时也能直接流式拷贝。APK 本身就是已压缩包，再压一次收益极小。
+    androidResources {
+        noCompress += "apk"
     }
 
     buildFeatures {

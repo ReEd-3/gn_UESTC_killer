@@ -31,6 +31,10 @@ class EngineEventReceiver : BroadcastReceiver() {
                 Prefs.markCheckedToday(context)
                 // [修复 2026-10-21] 引擎打卡成功 → 会话仍有效
                 Prefs.setSessionValid(context, true)
+                // [review 2026-10-21] 同步写"最近打卡"：此前只标完成不写文案，
+                // 导致引擎后台打卡成功后首页仍停在上一轮的"打卡未成功，稍后自动重试"
+                //（probeServerState 因本地标记已为 true 也不会纠正）
+                Prefs.setLastResult(context, "后台巡检打卡成功")
                 // [修复 2026-10-19] 立即把主应用的重试链指向明天：
                 // 否则引擎已打完卡时，主应用还要等下一轮重试/补打才发现已完成
                 runCatching { AlarmScheduler.scheduleDaily(context) }

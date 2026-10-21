@@ -28,6 +28,8 @@ object EnginePrefs {
     // [修复 2026-10-19] 巡检重排防抖：状态签名 + 上次重排时间
     private const val KEY_LAST_SCHED_SIG = "last_schedule_sig"
     private const val KEY_LAST_SCHED_AT = "last_schedule_at"
+    // [review 2026-10-21] 主应用同步过来的会话有效性：失效时不再排巡检（避免窗口内反复 POST）
+    private const val KEY_SESSION_VALID = "session_valid"
 
     /** 打卡窗口默认值与主应用一致（21:05–23:30） */
     const val DEFAULT_WIN_START = 1265
@@ -91,9 +93,17 @@ object EnginePrefs {
 
     fun getLastSuccessDate(c: Context): String = sp(c).getString(KEY_LAST_SUCCESS_DATE, "").orEmpty()
 
+    /**
+     * [review 2026-10-21] 会话是否有效（由主应用 sync 下发）。
+     * 默认 true：旧版本引擎未收到该字段时应保持原行为（能打卡就打卡）。
+     */
+    fun setSessionValid(c: Context, valid: Boolean) =
+        sp(c).edit().putBoolean(KEY_SESSION_VALID, valid).apply()
+
+    fun isSessionValid(c: Context): Boolean = sp(c).getBoolean(KEY_SESSION_VALID, true)
+
     /** 最近一次"实际尝试打卡"的时间戳（节流用） */
     fun setLastAttemptAt(c: Context, v: Long) = sp(c).edit().putLong(KEY_LAST_ATTEMPT_AT, v).apply()
-
     fun getLastAttemptAt(c: Context): Long = sp(c).getLong(KEY_LAST_ATTEMPT_AT, 0L)
 
     /** 最近一次已提醒过的失败原因（相同原因不重复打扰） */

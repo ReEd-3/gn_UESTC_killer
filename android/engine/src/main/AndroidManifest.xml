@@ -26,11 +26,13 @@
         android:protectionLevel="signature" />
 
     <!-- [2026-10-21] 应用图标：AS Image Asset 已生成到本模块；此前未在 manifest 声明 → 显示系统默认机器人 -->
+    <!-- [review 2026-10-21] 应用名与主应用保持一致：通知栏/系统设置里展示的就是"这个 App"，
+         避免用户看到"后台组件"这种内部用语（原值：晚安成电-后台组件） -->
     <application
         android:allowBackup="false"
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher_round"
-        android:label="晚安成电-后台组件"
+        android:label="@string/app_name"
         android:supportsRtl="true">
 
         <!-- 安装后由主应用拉起一次：解除"新安装应用"的 stopped 状态 + 申请通知权限；

@@ -41,7 +41,7 @@ object EngineBridge {
             get() = !installed || installedVersionCode < bundledVersionCode || contentDiffers
     }
 
-    fun query(context: Context): EngineInfo {
+    fun query(context: Context, deep: Boolean = true): EngineInfo {
         @Suppress("DEPRECATION")
         val installedCode = runCatching {
             context.packageManager.getPackageInfo(ENGINE_PACKAGE, 0).versionCode
@@ -49,19 +49,34 @@ object EngineBridge {
         val bundledCode = bundledVersionCode(context) ?: 0
         val installed = installedCode > 0
         // [修复 2026-10-18] 版本号相同时对比内容哈希：引擎内容变了但版本号没及时升时也能识别更新
+        // [review 2026-10-21] 性能：该哈希要对 2.8MB 内嵌 APK 做两次整包 SHA-256，原来在 onResume
+        // 每次都会被触发（全在主线程）。现在分两级：
+        //  - deep = false：高频路径（onResume / 启动引导）只用版本号，结果若本会话已算过则复用
+        //  - deep = true ：用户主动打开「后台组件」菜单/安装流程时才算，并缓存结果
         var contentDiffers = false
         if (installed && installedCode == bundledCode) {
-            val installedHash = runCatching {
-                context.packageManager.getPackageInfo(ENGINE_PACKAGE, 0).applicationInfo?.sourceDir
-                    ?.let { sha256(File(it)) }
-            }.getOrNull()
-            val bundledHash = runCatching {
-                extractBundledApk(context)?.let { sha256(it) }
-            }.getOrNull()
-            contentDiffers = installedHash != null && bundledHash != null && installedHash != bundledHash
+            val key = "$installedCode/$bundledCode"
+            if (deepCacheKey == key) {
+                contentDiffers = deepCacheValue
+            } else if (deep) {
+                val installedHash = runCatching {
+                    context.packageManager.getPackageInfo(ENGINE_PACKAGE, 0).applicationInfo?.sourceDir
+                        ?.let { sha256(File(it)) }
+                }.getOrNull()
+                val bundledHash = runCatching {
+                    extractBundledApk(context)?.let { sha256(it) }
+                }.getOrNull()
+                contentDiffers = installedHash != null && bundledHash != null && installedHash != bundledHash
+                deepCacheKey = key
+                deepCacheValue = contentDiffers
+            }
         }
         return EngineInfo(installed, installedCode, bundledCode, contentDiffers)
     }
+
+    /** [review 2026-10-21] 内容哈希结果缓存（键 = 已装版本/内嵌版本） */
+    private var deepCacheKey: String? = null
+    private var deepCacheValue: Boolean = false
 
     private fun sha256(f: File): String? = runCatching {
         val md = java.security.MessageDigest.getInstance("SHA-256")
@@ -90,15 +105,29 @@ object EngineBridge {
             // 内嵌资源已更新也不会重新提取（导致一直是旧引擎）→ 改为对比资源大小，
             // 并保留版本号标记兜底
             // [修复 2026-10-18] available() 对压缩资源可能返回不准；直接读取全部字节取真实大小
-            val assetSize = runCatching {
-                context.assets.open(ASSET_NAME).use { input -> input.readBytes().size.toLong() }
-            }.getOrDefault(-1L)
+            // [review 2026-10-21] 性能：asset 已在 app/build.gradle.kts 里设为不压缩，
+            // 可直接用 openFd().length 取长度→高频路径（每次 onResume 的引擎检测）不再把 2.8MB 读进内存；
+            // 只有在“确定需要重新提取”或 openFd 不可用时，才真正读一次资源（原实现读两次）
             val marker = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
                 .getInt(KEY_EXTRACT_MARKER, -1)
-            if (!out.exists() || marker != BuildConfig.VERSION_CODE || out.length() != assetSize) {
-                context.assets.open(ASSET_NAME).use { input ->
-                    out.outputStream().use { input.copyTo(it) }
-                }
+            val assetSize = runCatching {
+                context.assets.openFd(ASSET_NAME).use { it.length }
+            }.getOrNull()
+            if (assetSize != null && out.exists() &&
+                marker == BuildConfig.VERSION_CODE && out.length() == assetSize
+            ) {
+                return@runCatching out
+            }
+            // openFd 不可用（资源被压缩时）的兜底：已有文件且版本标记吻合就直接复用，
+            // 不再整包读一遍（原实现每次调用都会读）
+            if (assetSize == null && out.exists() && marker == BuildConfig.VERSION_CODE) {
+                return@runCatching out
+            }
+            val bytes = context.assets.open(ASSET_NAME).use { input -> input.readBytes() }
+            val needWrite = !out.exists() || marker != BuildConfig.VERSION_CODE ||
+                out.length() != bytes.size.toLong()
+            if (needWrite) {
+                out.writeBytes(bytes)
                 context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
                     .edit().putInt(KEY_EXTRACT_MARKER, BuildConfig.VERSION_CODE).apply()
             }
@@ -242,9 +271,13 @@ object EngineBridge {
 
     fun syncState(context: Context) {
         if (!isInstalled(context)) return
-        val enabled = Prefs.isServiceEnabled(context) && Prefs.getCookie(context).isNotBlank()
+        // [review 2026-10-21] 会话有效性一并下发：失效时引擎暂停巡检，避免窗口内一轮轮 POST 失败
+        val sessionValid = Prefs.isSessionValid(context)
+        val enabled = Prefs.isServiceEnabled(context) &&
+            Prefs.getCookie(context).isNotBlank()
         sendCommand(context, "sync") {
             it.putExtra("enabled", enabled)
+            it.putExtra("valid", sessionValid)
             it.putExtra("next_text", AlarmScheduler.nextTriggerTimeText(context))
             it.putExtra("cookie", Prefs.getCookie(context))
             it.putExtra("lat", Prefs.getLocationLat(context))

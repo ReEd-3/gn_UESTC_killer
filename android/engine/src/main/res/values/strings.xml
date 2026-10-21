@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- [review 2026-10-21] 引擎在通知栏/系统设置里展示的应用名与主应用保持一致：
+         用户感知的「这个 App」是主应用，不应出现「后台组件」这类内部用语 -->
+    <string name="app_name">晚安成电killer</string>
+</resources>

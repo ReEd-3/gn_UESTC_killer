@@ -56,6 +56,10 @@ class EngineReceiver : BroadcastReceiver() {
             // [v7 巡检链] 扩展：会话/坐标/打卡窗口一并同步，引擎据此具备独立打卡能力
             "sync" -> {
                 val enabled = intent.getBooleanExtra(EXTRA_ENABLED, false)
+                // [review 2026-10-21] 会话有效性：主应用已判定登录失效时不再排巡检，
+                // 否则引擎会在打卡窗口内一轮轮 POST 失败（空耗提交配额、有风控风险）
+                val valid = intent.getBooleanExtra(EXTRA_SESSION_VALID, true)
+                EnginePrefs.setSessionValid(context, valid)
                 val nextText = intent.getStringExtra(EXTRA_NEXT_TEXT).orEmpty()
                 EnginePrefs.setKeepAliveEnabled(context, enabled)
                 EnginePrefs.setNextText(context, nextText)
@@ -73,9 +77,15 @@ class EngineReceiver : BroadcastReceiver() {
                     EnginePrefs.setWinEnd(context, intent.getIntExtra(EXTRA_WIN_END, EnginePrefs.getWinEnd(context)))
                 }
                 // [修复 2026-10-19] 主应用今日已完成 → 引擎记录成功日，scheduleAll 随即撤销今日巡检网格
-                if (intent.getBooleanExtra(EXTRA_CHECKED, false)) {
+                // [review 2026-10-21] 改为"有该字段就双向同步"：主应用与服务端对账后发现"此前打卡未生效"
+                // 会下发 false，此前引擎只认 true → 引擎仍认为今天已完成 → 双保险直接失效
+                if (intent.hasExtra(EXTRA_CHECKED)) {
                     val today = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
-                    EnginePrefs.setLastSuccessDate(context, today)
+                    if (intent.getBooleanExtra(EXTRA_CHECKED, false)) {
+                        EnginePrefs.setLastSuccessDate(context, today)
+                    } else if (EnginePrefs.getLastSuccessDate(context) == today) {
+                        EnginePrefs.setLastSuccessDate(context, "")
+                    }
                 }
                 if (enabled) {
                     // [修复 2026-10-19] 服务已在运行则不再重复 start、也不再挂"3 秒复活"闹钟：
@@ -87,7 +97,10 @@ class EngineReceiver : BroadcastReceiver() {
                         EnginePatrol.scheduleRevive(context)
                     }
                     // [v7/v8] 安排巡检链（窗口内每 5 分钟一个巡检点，网格冗余）；scheduleAll 自带签名防抖
-                    EnginePatrol.scheduleAll(context)
+                    // [review 2026-10-21] 会话失效时撤掉巡检链（服务保留，通知上会提示重新登录）
+                    if (valid) EnginePatrol.scheduleAll(context) else EnginePatrol.cancelAll(context)
+                    // [review 2026-10-21] next_text / 会话有效性变了 → 刷新常驻通知文案（服务未运行则空操作）
+                    EngineKeepAliveService.refresh(context)
                 } else {
                     EngineKeepAliveService.stop(context)
                     EnginePatrol.cancelAll(context)
@@ -176,6 +189,8 @@ class EngineReceiver : BroadcastReceiver() {
         const val EXTRA_COOKIE = "cookie"
         // [修复 2026-10-19] 今日已完成标记（主应用 → 引擎）
         const val EXTRA_CHECKED = "checked"
+        // [review 2026-10-21] 会话是否仍然有效（false → 引擎暂停巡检）
+        const val EXTRA_SESSION_VALID = "valid"
         const val EXTRA_LAT = "lat"
         const val EXTRA_LNG = "lng"
         const val EXTRA_WIN_START = "win_start"
