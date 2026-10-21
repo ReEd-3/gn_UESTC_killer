@@ -39,6 +39,13 @@ class LoginActivity : AppCompatActivity() {
     @Volatile
     private var observedCookie: String? = null
 
+    /**
+     * [修复 2026-10-21] 已验证失败的 cookie 值：轮询每隔 3.2 秒一次，
+     * 若对同一个无效 cookie 反复验证，6 分钟内会发出近百次请求（且有触发风控风险）。
+     * 同值失败后不再自动重试，直到 cookie 变化或用户手动点击（force）。
+     */
+    private val failedCookies = mutableSetOf<String>()
+
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         // [修复 2026-10-19] 主题已改由 App(Application) 统一应用；保留备查
@@ -61,13 +68,7 @@ class LoginActivity : AppCompatActivity() {
         // [修复 2026-10-21] 会话已失效/未登录时，先清空 WebView 的 cookie：
         // 否则登录页首次加载时 shouldInterceptRequest 会捕获到【登录前的旧 SESSION】，
         // 旧会话在新登录生效后才被作废 → 造成"验证通过→保存→立即失效"的假登录（实测根因）
-        if (Prefs.getCookie(this).isBlank() || !Prefs.isSessionValid(this)) {
-            runCatching {
-                CookieManager.getInstance().removeAllCookies(null)
-                CookieManager.getInstance().flush()
-            }
-            observedCookie = null
-        }
+        val needCleanCookies = Prefs.getCookie(this).isBlank() || !Prefs.isSessionValid(this)
 
         with(binding.webView.settings) {
             javaScriptEnabled = true
@@ -128,7 +129,18 @@ class LoginActivity : AppCompatActivity() {
         }
 
         // 从站点首页进入：未登录会自动 302 到学校统一身份认证（CAS）登录页
-        binding.webView.loadUrl(HOME)
+        // [修复 2026-10-21] 先真正清完 cookie 再加载（removeAllCookies 是异步的，
+        // 原实现 flush 后立即 loadUrl，首屏请求仍可能带着旧 cookie → 旧会话又被观测到）
+        if (needCleanCookies) {
+            CookieManager.getInstance().removeAllCookies {
+                runCatching { CookieManager.getInstance().flush() }
+                observedCookie = null
+                binding.webView.loadUrl(HOME)
+            }
+        } else {
+            observedCookie = null
+            binding.webView.loadUrl(HOME)
+        }
 
         // 登录期间后台轮询会话：WebView 的 Cookie 入库有延迟，且登录后回到的是单页应用，
         // 页面不再产生「加载完成」事件，只靠 onPageFinished 一次性检查容易漏检
@@ -173,6 +185,8 @@ class LoginActivity : AppCompatActivity() {
         val candidates = listOf(jarCookie, observedCookie.orEmpty())
             .filter { it.contains("SESSION=") }
             .distinct()
+            // [修复 2026-10-21] 已验证失败过的同一个 cookie 不再重复验证（force=true 时除外）
+            .filter { force || it !in failedCookies }
 
         if (candidates.isEmpty()) {
             if (!quiet) binding.tvLoginStatus.text = getString(R.string.login_status_not_yet)
@@ -215,6 +229,8 @@ class LoginActivity : AppCompatActivity() {
                         null
                     }
                     if (pair != null) return@withContext Triple(true, pair.first, pair.second)
+                    // [修复 2026-10-21] 记录失败值，避免轮询对同一个无效 cookie 反复请求
+                    failedCookies += candidate
                 }
                 Triple(false, lastErr, "")
             }
@@ -248,6 +264,7 @@ class LoginActivity : AppCompatActivity() {
             }
 
             // [修复 2026-10-21] 登录成功 → 会话恢复有效
+            failedCookies.clear()
             Prefs.setSessionValid(this@LoginActivity, true)
             LogStore.append(this@LoginActivity, "[登录] 登录成功：$name")
             if (Prefs.isDefaultPointKnown(this@LoginActivity)) {

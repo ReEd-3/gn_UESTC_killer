@@ -658,6 +658,9 @@ class MainActivity : AppCompatActivity() {
     private fun probeServerState() {
         val cookie = Prefs.getCookie(this)
         if (cookie.isBlank()) return
+        // [修复 2026-10-21] 刚登录（60 秒内）不做探测：避免登录后立即请求造成的误判/竞态
+        //（否则刚拿到新会话就被标记成“登录已失效”）
+        if (System.currentTimeMillis() - Prefs.getCookieAt(this) < 60_000L) return
         val now = System.currentTimeMillis()
         if (now - lastProbeAt < 30_000L) return
         lastProbeAt = now
