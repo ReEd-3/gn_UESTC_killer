@@ -19,10 +19,27 @@ object EngineIcon {
     private const val MAIN_PACKAGE = "com.gnuestc.checkin"
     private const val LARGE_ICON_PX = 192
 
+    /**
+     * [2026-10-21] 内存缓存：常驻通知的"存活心跳"每秒刷新一次通知，
+     * 若不缓存则每秒都要 getApplicationIcon + 缩放解码一次位图（白白消耗 CPU）。
+     * 进程重启后自然刷新；主应用换图标时引擎通常也会随之重启，可接受。
+     */
+    @Volatile
+    private var cachedLarge: Bitmap? = null
+
+    @Volatile
+    private var loadFailed = false
+
     /** 主应用图标位图（用作通知大图标）；失败返回 null */
-    fun mainAppLarge(context: Context): Bitmap? = runCatching {
-        context.packageManager
-            .getApplicationIcon(MAIN_PACKAGE)
-            .toBitmap(LARGE_ICON_PX, LARGE_ICON_PX)
-    }.getOrNull()
+    fun mainAppLarge(context: Context): Bitmap? {
+        cachedLarge?.let { return it }
+        if (loadFailed) return null
+        val bmp = runCatching {
+            context.packageManager
+                .getApplicationIcon(MAIN_PACKAGE)
+                .toBitmap(LARGE_ICON_PX, LARGE_ICON_PX)
+        }.getOrNull()
+        if (bmp != null) cachedLarge = bmp else loadFailed = true
+        return bmp
+    }
 }
