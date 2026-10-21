@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- [2026-10-21] 通知栏小图标：Android 只读取 alpha 通道并统一染色，因此必须是纯白单色剪影
+     （直接用彩色 launcher 图标会显示成白色色块）。图形取"月牙"，呼应「晚安」主题。 -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <group
+        android:pivotX="12"
+        android:pivotY="12"
+        android:scaleX="0.88"
+        android:scaleY="0.88">
+        <path
+            android:fillColor="#FFFFFFFF"
+            android:pathData="M12,3c-4.97,0 -9,4.03 -9,9s4.03,9 9,9c0.83,0 1.64,-0.11 2.4,-0.32 -2.6,-1.78 -4.4,-4.76 -4.4,-8.18s1.8,-6.4 4.4,-8.18C13.64,3.11 12.83,3 12,3z" />
+    </group>
+</vector>

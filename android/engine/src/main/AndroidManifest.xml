@@ -25,8 +25,11 @@
         android:name="com.gnuestc.checkin.permission.CONTROL_ENGINE"
         android:protectionLevel="signature" />
 
+    <!-- [2026-10-21] 应用图标：AS Image Asset 已生成到本模块；此前未在 manifest 声明 → 显示系统默认机器人 -->
     <application
         android:allowBackup="false"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
         android:label="晚安成电-后台组件"
         android:supportsRtl="true">
 

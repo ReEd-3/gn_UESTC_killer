@@ -7,6 +7,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.BitmapFactory
 import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
@@ -54,7 +55,8 @@ class EngineAlarmReceiver : BroadcastReceiver() {
             }
             val now = SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date())
             val n = NotificationCompat.Builder(context, CHANNEL_ID)
-                .setSmallIcon(android.R.drawable.stat_notify_sync)
+                .setSmallIcon(R.drawable.ic_stat_checkin)
+                .setLargeIcon(BitmapFactory.decodeResource(context.resources, R.mipmap.ic_launcher))
                 .setContentTitle("打卡引擎 · 测试闹钟已触发")
                 .setContentText("触发时间 $now · 通道：$source")
                 .setAutoCancel(true)

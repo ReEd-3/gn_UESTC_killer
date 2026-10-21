@@ -9,6 +9,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.BitmapFactory
 import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
@@ -158,7 +159,8 @@ class EngineReceiver : BroadcastReceiver() {
             return // 无通知权限时静默（BootstrapActivity 会申请）
         }
         val n = NotificationCompat.Builder(context, CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.stat_notify_sync)
+            .setSmallIcon(R.drawable.ic_stat_checkin)
+            .setLargeIcon(BitmapFactory.decodeResource(context.resources, R.mipmap.ic_launcher))
             .setContentTitle("打卡引擎 · $title")
             .setContentText(text)
             .setAutoCancel(true)

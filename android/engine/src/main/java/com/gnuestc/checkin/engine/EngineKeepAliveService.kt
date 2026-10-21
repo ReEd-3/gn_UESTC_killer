@@ -10,6 +10,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
+import android.graphics.BitmapFactory
 import android.os.Build
 import android.os.Handler
 import android.os.IBinder
@@ -84,7 +85,8 @@ class EngineKeepAliveService : Service() {
             "已到点，等待系统投递（若长时间未触发=被系统延迟）· 心跳 $heartbeat"
         }
         val n = NotificationCompat.Builder(this, "engine_status")
-            .setSmallIcon(android.R.drawable.stat_notify_sync)
+            .setSmallIcon(R.drawable.ic_stat_checkin)
+            .setLargeIcon(BitmapFactory.decodeResource(resources, R.mipmap.ic_launcher))
             .setContentTitle(
                 if (leftMs > 0) "打卡引擎 · 测试闹钟已安排（心跳跳动中）"
                 else "打卡引擎 · 测试闹钟已到点（等待触发）"
@@ -226,7 +228,8 @@ class EngineKeepAliveService : Service() {
                 "下次打卡：$next（点击打开应用）"
             }
             return NotificationCompat.Builder(context, CHANNEL_ID)
-                .setSmallIcon(android.R.drawable.stat_notify_sync)
+                .setSmallIcon(R.drawable.ic_stat_checkin)
+                .setLargeIcon(BitmapFactory.decodeResource(context.resources, R.mipmap.ic_launcher))
                 .setContentTitle("自动打卡运行中")
                 .setContentText(text)
                 .setOngoing(true) // 不可划掉
