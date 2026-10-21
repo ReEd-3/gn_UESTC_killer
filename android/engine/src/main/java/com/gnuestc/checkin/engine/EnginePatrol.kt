@@ -8,7 +8,6 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.graphics.BitmapFactory
 import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
@@ -330,7 +329,7 @@ object EnginePatrol {
         // [文案 2026-10-19] 正式版定稿：通知用用户向短句；message 仍用于日志/事件上报
         val n = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_stat_checkin)
-            .setLargeIcon(BitmapFactory.decodeResource(context.resources, R.mipmap.ic_launcher))
+            .setLargeIcon(EngineIcon.mainAppLarge(context))
             .setContentTitle(if (success) "打卡成功" else "打卡未成功")
             .setContentText(
                 if (success) {
