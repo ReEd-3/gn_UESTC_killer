@@ -39,6 +39,9 @@
     <string name="btn_perms_text">权限检查</string>
     <string name="log_section">运行日志</string>
     <string name="log_clear">清空</string>
+    <string name="log_copy">复制</string>
+    <string name="log_copied">日志已复制到剪贴板</string>
+    <string name="log_copy_empty">暂无日志可复制</string>
     <string name="log_empty">暂无日志</string>
     <string name="location_card_title">自定义定位</string>
     <string name="location_edit">编辑</string>
@@ -56,7 +59,7 @@
     <string name="about_cd">应用介绍</string>
     <string name="about_title">关于晚安成电killer</string>
     <string name="about_ok">知道了</string>
-    <string name="about_content">晚安成电killer\n本应用旨在帮主人自动完成「晚安成电」的定时打卡喵~，不用主人每天惦记喵~。\n\n主要功能\n· 一次登录，自动抓取并保存cookie，无需反复登录\n· 每天按时自动打卡（窗口自动同步服务端，默认 21:05–23:30）\n· 打卡结果通过系统通知与运行日志实时反馈\n· 后台服务开关，随时暂停或恢复自动打卡\n\n脚本定位\n· 默认使用服务端下发的打卡点（自动识别所在组团）\n· 支持地图选点 / 使用手机当前位置 / 手动输入坐标\n· 在「脚本定位」功能中随时调整\n\n说明\n· 打卡请求直接提交至学校服务器，应用不收集、不上传任何个人信息\n· 登录会话仅保存在本机，卸载即清除\n· 该项目github仓库：\nhttps://github.com/ReEd-3/gn_UESTC_killer_release\n· 联系作者QQ：3850462058\n\n祝每天晚安好梦喵~\n</string>
+    <string name="about_content">晚安成电killer\n⚠ 当前仍为测试版本，可能会遇到问题。如遇异常，请通过下方 QQ 或 GitHub 反馈，并附上运行日志（日志区点「复制」即可）。\n\n本应用旨在帮主人自动完成「晚安成电」的定时打卡喵~，不用主人每天惦记喵~。\n\n主要功能\n· 一次登录，自动抓取并保存cookie，无需反复登录\n· 每天按时自动打卡（窗口自动同步服务端，默认 21:05–23:30）\n· 打卡结果通过系统通知与运行日志实时反馈\n· 后台服务开关，随时暂停或恢复自动打卡\n\n脚本定位\n· 默认使用服务端下发的打卡点（自动识别所在组团）\n· 支持地图选点 / 使用手机当前位置 / 手动输入坐标\n· 在「脚本定位」功能中随时调整\n\n说明\n· 打卡请求直接提交至学校服务器，应用不收集、不上传任何个人信息\n· 登录会话仅保存在本机，卸载即清除\n· 该项目github仓库：\nhttps://github.com/ReEd-3/gn_UESTC_killer_release\n· 联系作者QQ：3850462058\n\n祝每天晚安好梦喵~\n</string>
     <string name="location_perm_needed">需要定位权限才能获取当前位置喵</string>
     <string name="location_gps_failed">呜~获取定位失败了喵，请确认已开启定位服务</string>
     <string name="map_pick_title">选择定位点</string>

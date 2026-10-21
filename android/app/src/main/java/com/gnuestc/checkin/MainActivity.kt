@@ -6,6 +6,8 @@ import android.animation.AnimatorListenerAdapter
 import android.animation.ArgbEvaluator
 import android.animation.ValueAnimator
 import android.app.NotificationManager
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.DialogInterface
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -202,6 +204,28 @@ class MainActivity : AppCompatActivity() {
             LogStore.clear(this)
             LogStore.append(this, "[系统] 已清空日志")
             refreshConsole()
+        }
+
+        // [2026-10-21] 复制运行日志到剪贴板：日志为本地加密存储，用户无法自行导出，
+        // 反馈问题时可直接一键复制（含版本号，便于定位）
+        binding.btnCopyLog.setOnClickListener {
+            val lines = LogStore.all(this)
+            if (lines.isEmpty()) {
+                Toast.makeText(this, R.string.log_copy_empty, Toast.LENGTH_SHORT).show()
+            } else {
+                // 注意：buildString 里的 this 是 StringBuilder，需先在外部取值
+                val engineVer = EngineBridge.installedVersionCode(this)
+                val header = buildString {
+                    append("晚安成电killer v").append(BuildConfig.VERSION_NAME)
+                    append(" / 引擎 ").append(engineVer)
+                    append("\nAndroid ").append(Build.VERSION.RELEASE)
+                    append(" / ").append(Build.MANUFACTURER).append(' ').append(Build.MODEL)
+                    append("\n----------------\n")
+                }
+                val cm = getSystemService(CLIPBOARD_SERVICE) as ClipboardManager
+                cm.setPrimaryClip(ClipData.newPlainText("checkin_log", header + lines.joinToString("\n")))
+                Toast.makeText(this, R.string.log_copied, Toast.LENGTH_SHORT).show()
+            }
         }
 
         // [旧开关监听器已由圆形电源按钮取代，待审查后删除]

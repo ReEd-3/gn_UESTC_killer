@@ -360,6 +360,17 @@
             android:layout_height="1dp"
             android:layout_weight="1" />
 
+        <!-- [2026-10-21] 复制运行日志（便于反馈问题；日志本地加密存储，用户无法自行取到） -->
+        <TextView
+            android:id="@+id/btnCopyLog"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="12dp"
+            android:padding="4dp"
+            android:text="@string/log_copy"
+            android:textColor="@color/accent"
+            android:textSize="13sp" />
+
         <TextView
             android:id="@+id/btnClearLog"
             android:layout_width="wrap_content"
