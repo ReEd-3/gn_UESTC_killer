@@ -28,6 +28,10 @@
     <string name="account_label">账号状态</string>
     <string name="logged_in">已登录</string>
     <string name="not_logged">未登录</string>
+    <string name="session_invalid">登录已失效</string>
+    <string name="service_invalid_title">登录已失效</string>
+    <string name="service_invalid_sub">点击下方「重新登录」后恢复自动打卡</string>
+    <string name="last_prefix_fmt">%1$s · %2$s</string>
     <string name="last_label">最近打卡</string>
     <string name="no_record">暂无记录</string>
     <string name="btn_login_text">登录账号</string>

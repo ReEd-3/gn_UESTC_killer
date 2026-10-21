@@ -29,6 +29,8 @@ class EngineEventReceiver : BroadcastReceiver() {
             // [v7 巡检链] 引擎独立打卡结果 → 同步主应用状态
             "checkin_success" -> {
                 Prefs.markCheckedToday(context)
+                // [修复 2026-10-21] 引擎打卡成功 → 会话仍有效
+                Prefs.setSessionValid(context, true)
                 // [修复 2026-10-19] 立即把主应用的重试链指向明天：
                 // 否则引擎已打完卡时，主应用还要等下一轮重试/补打才发现已完成
                 runCatching { AlarmScheduler.scheduleDaily(context) }
@@ -36,9 +38,11 @@ class EngineEventReceiver : BroadcastReceiver() {
             }
             "checkin_failed" -> {
                 // [修复 2026-10-19] 会话失效时引擎已暂停巡检，日志如实说明（需重新登录）
-                val tail = if (detail.contains("登录无效") || detail.contains("已过期") ||
+                val expired = detail.contains("登录无效") || detail.contains("已过期") ||
                     detail.contains("未登录")
-                ) "→ 已暂停今日/明日巡检，请重新登录" else "→ 将继续自动重试"
+                // [修复 2026-10-21] 引擎侧发现的会话失效也要反映到可界面：账号状态置为登录已失效
+                if (expired) Prefs.setSessionValid(context, false)
+                val tail = if (expired) "→ 已暂停今日/明日巡检，请重新登录" else "→ 将继续自动重试"
                 "[引擎] 打卡未成功：$detail（$fmt）$tail"
             }
             else -> return

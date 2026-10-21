@@ -84,6 +84,8 @@ object CheckinRunner {
             "打卡异常：${e.message}"
         }
         Prefs.setLastResult(context, result)
+        // [修复 2026-10-21] 打卡过程中发现会话失效 → 立即标记（UI 账号状态随之显示“登录已失效”）
+        if (isSessionExpired(result)) Prefs.setSessionValid(context, false)
         LogStore.append(context, "[打卡] $result")
         return result
     }
@@ -136,8 +138,9 @@ object CheckinRunner {
     /**
      * [文案 2026-10-19] 「用户向」文案：通知 / 首页「最近打卡」/ 前台 Toast 使用；
      * 运行日志与内部记录仍保留原始结果（技术细节供排查）。
+     * [修复 2026-10-21] 新增 isToday：非当天结果不再说“今天的打卡已完成”（会误导为今天已完成）
      */
-    fun userText(result: String): String = when {
+    fun userText(result: String, isToday: Boolean = true): String = when {
         result.contains("已恢复") -> result // 对账提示本就是用户向文案
         // [修复 2026-10-19] 服务端会话失效（"登录无效或已过期"）：提示重新登录
         result.contains("登录无效") || result.contains("已过期") || result.contains("未登录") ->
@@ -149,8 +152,13 @@ object CheckinRunner {
         result.contains("未知状态") -> "打卡未成功，稍后自动重试"
         result.contains("未生效") -> "打卡未成功：服务端未记录，稍后自动重试"
         result.contains("失败") || result.contains("异常") -> "打卡失败，稍后自动重试"
-        result.contains("跳过") -> "今日无需打卡"
-        result.contains("成功") || result.contains("已打卡") || result.contains("已完成") -> "今天的打卡已完成"
+        result.contains("跳过") -> "当日无需打卡"
+        result.contains("成功") || result.contains("已打卡") || result.contains("已完成") ->
+            if (isToday) "今天的打卡已完成" else "当日已完成打卡"
         else -> result
     }
+
+    /** [修复 2026-10-21] 结果是否表示"会话失效/未登录"（供 UI 置为登录失效态） */
+    fun isSessionExpired(result: String): Boolean =
+        result.contains("登录无效") || result.contains("已过期") || result.contains("未登录")
 }

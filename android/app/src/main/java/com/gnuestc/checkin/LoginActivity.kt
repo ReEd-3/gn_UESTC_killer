@@ -200,6 +200,8 @@ class LoginActivity : AppCompatActivity() {
             if (verify.isNotEmpty() && !verify.startsWith("ERR:")) {
                 CookieManager.getInstance().flush()
                 Prefs.setCookie(this@LoginActivity, cookie)
+                // [修复 2026-10-21] 登录成功 → 会话恢复有效
+                Prefs.setSessionValid(this@LoginActivity, true)
                 LogStore.append(this@LoginActivity, "[登录] 登录成功：$verify")
                 if (Prefs.isDefaultPointKnown(this@LoginActivity)) {
                     LogStore.append(

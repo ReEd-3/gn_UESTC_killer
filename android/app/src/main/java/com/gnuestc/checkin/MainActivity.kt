@@ -269,12 +269,16 @@ class MainActivity : AppCompatActivity() {
 
     /** 刷新所有状态展示 */
     private fun refreshStatus() {
-        val logged = Prefs.getCookie(this).isNotBlank()
+        val hasCookie = Prefs.getCookie(this).isNotBlank()
+        // [修复 2026-10-21] 会话有效性独立标记：cookie 存在但服务端已判定失效时，
+        // 账号状态必须显示"登录已失效"（此前只看 cookie 非空 → 一直显示“已登录”）
+        val logged = hasCookie && Prefs.isSessionValid(this)
         val enabled = Prefs.isServiceEnabled(this)
 
         val (title, sub) = when {
             !enabled -> getString(R.string.service_off_title) to getString(R.string.service_off_sub)
-            !logged -> getString(R.string.service_wait_title) to getString(R.string.service_wait_sub)
+            !hasCookie -> getString(R.string.service_wait_title) to getString(R.string.service_wait_sub)
+            !logged -> getString(R.string.service_invalid_title) to getString(R.string.service_invalid_sub)
             else -> getString(R.string.service_on_title) to getString(R.string.service_on_sub)
         }
         binding.tvServiceTitle.text = title
@@ -284,9 +288,20 @@ class MainActivity : AppCompatActivity() {
         binding.tvNext.text = getString(R.string.next_prefix) + AlarmScheduler.nextTriggerTimeText(this)
 
         // 账号状态卡片
-        binding.tvAccount.text = getString(if (logged) R.string.logged_in else R.string.not_logged)
+        binding.tvAccount.text = when {
+            !hasCookie -> getString(R.string.not_logged)
+            !logged -> getString(R.string.session_invalid)
+            else -> getString(R.string.logged_in)
+        }
+        // 失效时用警示色，平时用主文本色
+        binding.tvAccount.setTextColor(
+            ContextCompat.getColor(
+                this,
+                if (hasCookie && !logged) R.color.dot_warn else R.color.text_primary
+            )
+        )
 
-        // 登录按钮随登录态变化：未登录=主色实心引导；已登录=次要样式「重新登录」
+        // 登录按钮：未登录/失效 → 主色实心引导重新登录；已登录 → 次要样式「重新登录」
         if (logged) {
             binding.btnLogin.setText(R.string.btn_relogin_text)
             binding.btnLogin.setBackgroundResource(R.drawable.bg_btn_secondary)
@@ -299,10 +314,21 @@ class MainActivity : AppCompatActivity() {
 
         // 「最近打卡」按结果着色：成功绿 / 失败橙 / 其余默认
         val lastResult = Prefs.getLastResult(this)
-        // [文案 2026-10-19] 卡片展示用「用户向」文案；下面的着色判断仍用原始结果
-        binding.tvLast.text = lastResult?.let { CheckinRunner.userText(it) } ?: getString(R.string.no_record)
+        val lastDate = Prefs.getLastResultDate(this)
+        val lastIsToday = lastDate == java.time.LocalDate.now().toString()
+        // [修复 2026-10-21] 非当天结果加日期前缀，且文案不再说“今天的打卡已完成”
+        //（此前昨天的成功结果会在今天继续显示成"今天已完成"，误导判断）
+        binding.tvLast.text = if (lastResult == null) {
+            getString(R.string.no_record)
+        } else {
+            val body = CheckinRunner.userText(lastResult, lastIsToday)
+            if (lastIsToday || lastDate.isBlank()) body
+            else getString(R.string.last_prefix_fmt, lastDate.takeLast(5), body)
+        }
         val lastColor = when {
             lastResult == null -> R.color.text_secondary
+            // [修复 2026-10-21] 非当天结果用次要色，避免被误读为"今天的状态"
+            !lastIsToday -> R.color.text_secondary
             lastResult.contains("成功") || lastResult.contains("已打卡") || lastResult.contains("已完成") -> R.color.dot_on
             lastResult.contains("失败") || lastResult.contains("异常") || lastResult.contains("未登录") -> R.color.dot_warn
             else -> R.color.text_primary
@@ -620,7 +646,6 @@ class MainActivity : AppCompatActivity() {
         val keys = listOf("登录无效", "未登录", "请先登录", "登录已过期", "会话已失效", "session", "token")
         return keys.any { msg.contains(it, ignoreCase = true) }
     }
-
     /**
      * [修复 2026-10-19] 打开应用时的服务端状态探测（取代 reconcileCheckedState）：
      *  - 网络失败：不做任何判定（避免误伤）
@@ -646,6 +671,8 @@ class MainActivity : AppCompatActivity() {
                 // 仅记日志，避免把“服务端拒绝打卡”误报成“登录已过期”
                 val msg = resp.optString("msg")
                 if (isSessionInvalidMsg(msg)) {
+                    // [修复 2026-10-21] 标记会话失效 → 账号状态显示“登录已失效”
+                    Prefs.setSessionValid(this@MainActivity, false)
                     if (!sessionInvalidPrompted) {
                         sessionInvalidPrompted = true
                         LogStore.append(this@MainActivity, "[系统] 登录态失效：$msg")
@@ -662,6 +689,8 @@ class MainActivity : AppCompatActivity() {
                 return@launch
             }
             sessionInvalidPrompted = false
+            // [修复 2026-10-21] 服务端响应正常 → 会话有效
+            Prefs.setSessionValid(this@MainActivity, true)
             // [修复 2026-10-20] 探测确认服务端响应正常 → 若卡片上还留着遗留的"登录类"错误，
             // 清理它（否则会出现"已登录却一直显示登录失败"的误导）
             run {
@@ -710,6 +739,8 @@ class MainActivity : AppCompatActivity() {
         if (catchUpRunning) return
         if (!Prefs.isServiceEnabled(this)) return
         if (Prefs.getCookie(this).isBlank()) return
+        // [修复 2026-10-21] 已知会话失效：补打必然失败，先等用户重新登录（避免刷失败提示与无谓请求）
+        if (!Prefs.isSessionValid(this)) return
         if (!AlarmScheduler.isInWindowNow(this)) return
         if (Prefs.isCheckedToday(this)) return
         val now = System.currentTimeMillis()

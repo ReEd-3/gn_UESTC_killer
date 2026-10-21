@@ -14,6 +14,9 @@ object Prefs {
     private const val NAME = "gn_checkin"
     private const val KEY_COOKIE = "session_cookie"
     private const val KEY_LAST = "last_result"
+    // [修复 2026-10-21] 最近结果的日期 + 会话有效性
+    private const val KEY_LAST_DATE = "last_result_date"
+    private const val KEY_SESSION_VALID = "session_valid"
     private const val KEY_NEXT = "next_trigger"
     private const val KEY_SERVICE = "service_enabled"
     private const val KEY_DARK = "dark_theme"
@@ -56,8 +59,23 @@ object Prefs {
         sp(c).edit().putString(KEY_COOKIE, stored).apply()
     }
 
-    fun setLastResult(c: Context, v: String) = sp(c).edit().putString(KEY_LAST, v).apply()
+    // [修复 2026-10-21] 记录最近结果的【日期】：卡片展示需区分"今天的结果"与"昨天的旧结果"，
+    // 否则昨天的"已完成"会在今天继续显示，造成误导
+    fun setLastResult(c: Context, v: String) = sp(c).edit()
+        .putString(KEY_LAST, v)
+        .putString(KEY_LAST_DATE, LocalDate.now().toString())
+        .apply()
+
     fun getLastResult(c: Context): String? = sp(c).getString(KEY_LAST, null)
+
+    fun getLastResultDate(c: Context): String = sp(c).getString(KEY_LAST_DATE, "").orEmpty()
+
+    // [修复 2026-10-21] 会话有效性标记：服务端返回登录类拒绝时置 false（账号状态显示"登录已失效"），
+    // 登录成功/服务端响应正常时置 true
+    fun setSessionValid(c: Context, valid: Boolean) =
+        sp(c).edit().putBoolean(KEY_SESSION_VALID, valid).apply()
+
+    fun isSessionValid(c: Context): Boolean = sp(c).getBoolean(KEY_SESSION_VALID, true)
 
     fun setNextTrigger(c: Context, millis: Long) = sp(c).edit().putLong(KEY_NEXT, millis).apply()
     fun getNextTrigger(c: Context): Long = sp(c).getLong(KEY_NEXT, 0L)
