@@ -13,6 +13,8 @@ import java.util.Locale
 object Prefs {
     private const val NAME = "gn_checkin"
     private const val KEY_COOKIE = "session_cookie"
+    // [修复 2026-10-21] 会话写入时间
+    private const val KEY_COOKIE_AT = "session_cookie_at"
     private const val KEY_LAST = "last_result"
     // [修复 2026-10-21] 最近结果的日期 + 会话有效性
     private const val KEY_LAST_DATE = "last_result_date"
@@ -56,8 +58,15 @@ object Prefs {
     fun setCookie(c: Context, v: String) {
         // 加密不可用时降级为原文写入，保证极端情况下登录态仍可用
         val stored = if (v.isBlank()) v else (SecretStore.encrypt(v) ?: v)
-        sp(c).edit().putString(KEY_COOKIE, stored).apply()
+        sp(c).edit()
+            .putString(KEY_COOKIE, stored)
+            // [修复 2026-10-21] 记录写入时间：用于丢弃"旧会话的迟到失败事件"（否则会覆盖新登录的有效态）
+            .putLong(KEY_COOKIE_AT, System.currentTimeMillis())
+            .apply()
     }
+
+    /** [修复 2026-10-21] 当前会话 cookie 的写入时间（毫秒；0 = 未知） */
+    fun getCookieAt(c: Context): Long = sp(c).getLong(KEY_COOKIE_AT, 0L)
 
     // [修复 2026-10-21] 记录最近结果的【日期】：卡片展示需区分"今天的结果"与"昨天的旧结果"，
     // 否则昨天的"已完成"会在今天继续显示，造成误导

@@ -41,7 +41,9 @@ class EngineEventReceiver : BroadcastReceiver() {
                 val expired = detail.contains("登录无效") || detail.contains("已过期") ||
                     detail.contains("未登录")
                 // [修复 2026-10-21] 引擎侧发现的会话失效也要反映到可界面：账号状态置为登录已失效
-                if (expired) Prefs.setSessionValid(context, false)
+                // 但若该事件早于当前 cookie 写入时间（旧会话的迟到失败），忽略——
+                // 否则刚重新登录成功就会被旧事件覆盖成“登录已失效”
+                if (expired && ts >= Prefs.getCookieAt(context)) Prefs.setSessionValid(context, false)
                 val tail = if (expired) "→ 已暂停今日/明日巡检，请重新登录" else "→ 将继续自动重试"
                 "[引擎] 打卡未成功：$detail（$fmt）$tail"
             }

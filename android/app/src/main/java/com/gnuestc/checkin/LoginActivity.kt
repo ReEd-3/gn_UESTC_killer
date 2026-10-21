@@ -58,6 +58,17 @@ class LoginActivity : AppCompatActivity() {
         CookieManager.getInstance().setAcceptCookie(true)
         CookieManager.getInstance().setAcceptThirdPartyCookies(binding.webView, true)
 
+        // [修复 2026-10-21] 会话已失效/未登录时，先清空 WebView 的 cookie：
+        // 否则登录页首次加载时 shouldInterceptRequest 会捕获到【登录前的旧 SESSION】，
+        // 旧会话在新登录生效后才被作废 → 造成"验证通过→保存→立即失效"的假登录（实测根因）
+        if (Prefs.getCookie(this).isBlank() || !Prefs.isSessionValid(this)) {
+            runCatching {
+                CookieManager.getInstance().removeAllCookies(null)
+                CookieManager.getInstance().flush()
+            }
+            observedCookie = null
+        }
+
         with(binding.webView.settings) {
             javaScriptEnabled = true
             domStorageEnabled = true
@@ -143,100 +154,129 @@ class LoginActivity : AppCompatActivity() {
     }
 
     /**
-     * 读取会话并验证。优先使用 shouldInterceptRequest 旁路捕获的 Cookie
-     * （页面实际发请求时携带的值，不依赖 CookieManager 的读取时机），
-     * 否则退回 CookieManager.getCookie。
+     * 读取会话并验证。
+     * [修复 2026-10-21] 原实现优先用 observedCookie（旁路捕获）：它可能是【登录前】的旧会话，
+     * 而旧会话会在新登录生效后被服务端立即作废 → “验证通过→保存→马上失效”的假登录。
+     * 现在：先取 CookieManager 当前值（登录后的新会话），observedCookie 只作为候选，
+     * 逐个验证取第一个有效的；保存后再用“实际存下的值”复验一次。
      */
     private fun tryCapture(force: Boolean = false, quiet: Boolean = false) {
         val now = System.currentTimeMillis()
         if (verifying || reading || (!force && now - lastVerifyAt < 3000)) return
 
-        observedCookie?.let { c ->
-            onCookieReady(c, now, quiet)
-            return
-        }
-
         reading = true
-        val cookie = CookieManager.getInstance().getCookie(HOME).orEmpty()
+        val jarCookie = runCatching {
+            CookieManager.getInstance().let { it.flush(); it.getCookie(HOME) }.orEmpty()
+        }.getOrDefault("")
         reading = false
-        onCookieReady(cookie, now, quiet)
-    }
 
-    /** 拿到 Cookie 后的处理：校验后发起 /today 验证 */
-    private fun onCookieReady(cookie: String, now: Long, quiet: Boolean) {
-        if (verifying) return
-        if (!cookie.contains("SESSION=")) {
+        val candidates = listOf(jarCookie, observedCookie.orEmpty())
+            .filter { it.contains("SESSION=") }
+            .distinct()
+
+        if (candidates.isEmpty()) {
             if (!quiet) binding.tvLoginStatus.text = getString(R.string.login_status_not_yet)
             return
         }
+        verifyCandidates(candidates, now)
+    }
 
+    /** [修复 2026-10-21] 逐个候选 cookie 验证，第一个有效即采用；保存后再复验存下的值 */
+    private fun verifyCandidates(candidates: List<String>, now: Long) {
+        if (verifying) return
         lastVerifyAt = now
         verifying = true
         binding.tvLoginStatus.text = getString(R.string.login_status_verifying)
 
         lifecycleScope.launch {
-            val verify = withContext(Dispatchers.IO) {
-                runCatching {
-                    val resp = CheckinApi(cookie).getToday()
-                    val code = resp.optInt("code", -1)
-                    if (code == 0) {
-                        // 提取本账号打卡点与时间窗口（服务端按学生下发），失败不影响登录
-                        val api = CheckinApi(cookie)
+            // 返回：是否成功 / cookie（或错误信息）/ 学生姓名
+            val result: Triple<Boolean, String, String> = withContext(Dispatchers.IO) {
+                var lastErr = "未获取到有效会话"
+                for (candidate in candidates) {
+                    val pair = runCatching {
+                        val resp = CheckinApi(candidate).getToday()
+                        val code = resp.optInt("code", -1)
+                        if (code != 0) {
+                            lastErr = "服务端返回 code=$code ${resp.optString("msg")}"
+                            return@runCatching null
+                        }
+                        val data = resp.optJSONObject("data")
+                        if (data == null) {
+                            lastErr = "服务端未返回账号信息"
+                            return@runCatching null
+                        }
+                        // 验证通过：顺便同步本账号打卡点与时间窗口（失败不影响登录）
+                        val api = CheckinApi(candidate)
                         RemoteSync.refreshLocation(this@LoginActivity, api)
                         RemoteSync.refreshSchedule(this@LoginActivity, api)
-                        // [修复 2026-10-20] 原实现用 studentName 作为"验证成功"的凭据：
-                        // 若服务端未返回姓名（或字段变更）就会被误判为"登录失败"，即使会话完全有效。
-                        // 改为：code==0 且返回了 data 即视为登录成功，姓名仅用于展示。
-                        val data = resp.optJSONObject("data")
-                        if (data == null) "ERR:服务端未返回账号信息"
-                        else data.optString("studentName").ifBlank { "（已登录）" }
-                    } else {
-                        "ERR:服务端返回 code=$code ${resp.optString("msg")}"
+                        candidate to data.optString("studentName").ifBlank { "（已登录）" }
+                    }.getOrElse { e ->
+                        lastErr = "${e.javaClass.simpleName}: ${e.message}"
+                        null
                     }
-                }.getOrElse { "ERR:${it.javaClass.simpleName}: ${it.message}" }
+                    if (pair != null) return@withContext Triple(true, pair.first, pair.second)
+                }
+                Triple(false, lastErr, "")
             }
             verifying = false
 
-            if (verify.isNotEmpty() && !verify.startsWith("ERR:")) {
-                CookieManager.getInstance().flush()
-                Prefs.setCookie(this@LoginActivity, cookie)
-                // [修复 2026-10-21] 登录成功 → 会话恢复有效
-                Prefs.setSessionValid(this@LoginActivity, true)
-                LogStore.append(this@LoginActivity, "[登录] 登录成功：$verify")
-                if (Prefs.isDefaultPointKnown(this@LoginActivity)) {
-                    LogStore.append(
-                        this@LoginActivity,
-                        "[登录] 已获取本账号打卡点：${Prefs.getDefaultName(this@LoginActivity)}"
-                    )
-                }
-                if (Prefs.isWindowSynced(this@LoginActivity)) {
-                    LogStore.append(
-                        this@LoginActivity,
-                        "[登录] 已同步时间窗口（${Prefs.windowLabel(this@LoginActivity)}）"
-                    )
-                }
-                // [修复 2026-10-20] 登录成功即刷新「最近打卡」结果，避免卡片继续展示上一次遗留的
-                // “登录已过期/登录失败”等陈旧信息（用户反馈：已登录却显示登录失败）
-                Prefs.setLastResult(this@LoginActivity, "登录成功，等待自动打卡")
-                // 立即安排：未到点排窗口开始时间；窗口内则 1 分钟后尽快补打
-                AlarmScheduler.ensureScheduled(this@LoginActivity)
-                // [修复 2026-10-19] 登录成功立即把新会话同步给引擎：
-                // 否则返回主界面只走 onResume 时，引擎可能仍持旧/空 Cookie →
-                // 巡检报“登录无效”、常驻通知的“下次打卡”文案滞后
-                EngineBridge.syncState(this@LoginActivity)
-                Toast.makeText(
-                    this@LoginActivity,
-                    getString(R.string.login_success, verify),
-                    Toast.LENGTH_LONG
-                ).show()
-                finish()
-            } else {
-                binding.tvLoginStatus.text = if (verify.startsWith("ERR:")) {
-                    getString(R.string.login_status_verify_failed, verify.removePrefix("ERR:").take(80))
-                } else {
-                    getString(R.string.login_status_not_yet)
-                }
+            if (!result.first) {
+                binding.tvLoginStatus.text =
+                    getString(R.string.login_status_verify_failed, result.second.take(80))
+                return@launch
             }
+
+            val cookie = result.second
+            val name = result.third
+            CookieManager.getInstance().flush()
+            Prefs.setCookie(this@LoginActivity, cookie)
+
+            // [修复 2026-10-21] 关键：用“实际存下来并解密得到的 cookie”再验证一次，
+            // 避免存下一条已经被新登录顶掉的旧会话
+            val storedOk = withContext(Dispatchers.IO) {
+                runCatching {
+                    CheckinApi(Prefs.getCookie(this@LoginActivity)).getToday().optInt("code", -1) == 0
+                }.getOrDefault(false)
+            }
+            if (!storedOk) {
+                Prefs.setCookie(this@LoginActivity, "")
+                Prefs.setSessionValid(this@LoginActivity, false)
+                LogStore.append(this@LoginActivity, "[登录] 保存后复验失败：会话可能已被新登录作废")
+                binding.tvLoginStatus.text =
+                    getString(R.string.login_status_verify_failed, "保存后复验失败，请重新登录")
+                return@launch
+            }
+
+            // [修复 2026-10-21] 登录成功 → 会话恢复有效
+            Prefs.setSessionValid(this@LoginActivity, true)
+            LogStore.append(this@LoginActivity, "[登录] 登录成功：$name")
+            if (Prefs.isDefaultPointKnown(this@LoginActivity)) {
+                LogStore.append(
+                    this@LoginActivity,
+                    "[登录] 已获取本账号打卡点：${Prefs.getDefaultName(this@LoginActivity)}"
+                )
+            }
+            if (Prefs.isWindowSynced(this@LoginActivity)) {
+                LogStore.append(
+                    this@LoginActivity,
+                    "[登录] 已同步时间窗口（${Prefs.windowLabel(this@LoginActivity)}）"
+                )
+            }
+            // [修复 2026-10-20] 登录成功即刷新「最近打卡」结果，避免卡片继续展示上一次遗留的
+            // “登录已过期/登录失败”等陈旧信息（用户反馈：已登录却显示登录失败）
+            Prefs.setLastResult(this@LoginActivity, "登录成功，等待自动打卡")
+            // 立即安排：未到点排窗口开始时间；窗口内则 1 分钟后尽快补打
+            AlarmScheduler.ensureScheduled(this@LoginActivity)
+            // [修复 2026-10-19] 登录成功立即把新会话同步给引擎：
+            // 否则返回主界面只走 onResume 时，引擎可能仍持旧/空 Cookie →
+            // 巡检报“登录无效”、常驻通知的“下次打卡”文案滞后
+            EngineBridge.syncState(this@LoginActivity)
+            Toast.makeText(
+                this@LoginActivity,
+                getString(R.string.login_success, name),
+                Toast.LENGTH_LONG
+            ).show()
+            finish()
         }
     }
 
