@@ -26,7 +26,15 @@ class EngineInstallReceiver : BroadcastReceiver() {
                 val confirm = intent.getParcelableExtra<Intent>(Intent.EXTRA_INTENT)
                 if (confirm != null) {
                     confirm.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    // [修复 2026-10-22] 此处是系统要求的"拉起确认界面"，
+                    // 但 Android 10+ 后台启动 Activity 会被静默丢弃（MIUI 尤严）→ 不能只为它写日志就算完
                     runCatching { context.startActivity(confirm) }
+                        .onFailure {
+                            LogStore.append(
+                                context,
+                                "[引擎] 拉起安装确认界面失败（可能被后台启动限制拦截）：${it.javaClass.simpleName}"
+                            )
+                        }
                 }
             }
             PackageInstaller.STATUS_SUCCESS -> {

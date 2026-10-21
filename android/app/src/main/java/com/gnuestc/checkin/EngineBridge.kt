@@ -171,6 +171,23 @@ object EngineBridge {
             "v$vc · ${apk.length()}B"
         }.getOrDefault("未知")
         LogStore.append(context, "[引擎] 准备安装内嵌引擎：$fileInfo")
+        // [修复 2026-10-22] 主路径改为直接拉起系统安装器：
+        // PackageInstaller 会话的确认界面要靠 EngineInstallReceiver 收到
+        // STATUS_PENDING_USER_ACTION 后 startActivity(confirm) 拉起，而 Android 10+ 的后台
+        // 启动 Activity 限制（MIUI/HyperOS 尤严）会把这次启动静默丢弃：
+        // 会话 commit() 成功、界面却根本没弹，回前台就只看到"更新未完成"。
+        // 安装器方式由用户在前台点击直接触发，各 ROM 都会正常弹出确认页。
+        val viaInstaller = runCatching { installViaInstaller(context, apk) }
+            .onFailure { e ->
+                LogStore.append(context, "[引擎] 拉起系统安装器失败：${e.javaClass.simpleName}: ${e.message}")
+            }
+            .getOrDefault(false)
+        if (viaInstaller) {
+            LogStore.append(context, "[引擎] 已拉起系统安装器，等待用户在系统界面确认")
+            return true
+        }
+        // 安装器不可用（极少数设备/被安全软件拦截）时才回退到静默会话
+        LogStore.append(context, "[引擎] 回退到 PackageInstaller 会话安装（带结果回执）")
         val viaSession = runCatching { installViaSession(context, apk) }
             .onFailure { e ->
                 LogStore.append(context, "[引擎] 会话安装不可用：${e.javaClass.simpleName}: ${e.message}")
@@ -180,9 +197,8 @@ object EngineBridge {
             LogStore.append(context, "[引擎] 已提交安装会话，等待系统确认（结果稍后记录）")
             return true
         }
-        // 会话方式不可用时回退旧的 ACTION_VIEW
-        LogStore.append(context, "[引擎] 回退到安装器方式（ACTION_VIEW，无结果回执）")
-        return runCatching { installViaView(context, apk) }.getOrDefault(false)
+        LogStore.append(context, "[引擎] 安装未能发起：安装器与会话两种方式均失败")
+        return false
     }
 
     /** PackageInstaller 会话安装（带结果回执） */
@@ -214,7 +230,39 @@ object EngineBridge {
         }
     }
 
+    /**
+     * [修复 2026-10-22] 主安装方式：由前台直接拉起系统安装器。
+     * 优先 ACTION_INSTALL_PACKAGE（MIUI/HyperOS 兼容性更好），不可用再退 ACTION_VIEW。
+     * 两者都由用户点击触发，不依赖任何后台回调，不会出现"点了但什么都不弹"。
+     */
+    @Suppress("DEPRECATION")
+    private fun installViaInstaller(context: Context, apk: File): Boolean {
+        val uri: Uri = FileProvider.getUriForFile(
+            context, "${context.packageName}.fileprovider", apk
+        )
+        val installIntent = Intent(Intent.ACTION_INSTALL_PACKAGE).apply {
+            data = uri
+            putExtra(Intent.EXTRA_NOT_UNKNOWN_SOURCE, false)
+            putExtra(Intent.EXTRA_RETURN_RESULT, false)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        val viewIntent = Intent(Intent.ACTION_VIEW).apply {
+            setDataAndType(uri, "application/vnd.android.package-archive")
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        return runCatching {
+            context.startActivity(installIntent)
+            true
+        }.getOrElse {
+            runCatching {
+                context.startActivity(viewIntent)
+                true
+            }.getOrDefault(false)
+        }
+    }
+
     /** 回退方案：ACTION_VIEW 拉起系统安装器 */
+    @Suppress("unused")
     private fun installViaView(context: Context, apk: File): Boolean {
         val uri: Uri = FileProvider.getUriForFile(
             context, "${context.packageName}.fileprovider", apk

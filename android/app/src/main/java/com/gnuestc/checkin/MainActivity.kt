@@ -569,6 +569,10 @@ class MainActivity : AppCompatActivity() {
             .setPositiveButton(R.string.first_run_ok) { _, _ ->
                 Prefs.setFirstRunGuideShown(this, true)
                 requestNotificationPermissionIfNeeded()
+                // [修复 2026-10-22] 首次启动时 onCreate 里的 maybePromptEngineInstall()
+                // 因标记还是 false 而直接返回 → 新装用户永远弹不出引擎安装引导。
+                // 这里延后 400ms 补弹，错开系统通知权限弹窗
+                binding.root.postDelayed({ maybePromptEngineInstall() }, 400L)
             }
             .show()
     }
@@ -1109,7 +1113,14 @@ class MainActivity : AppCompatActivity() {
         val notifOk = notifMainOk && engineNotifGranted
         val alarmOk = AlarmScheduler.canScheduleExact(this)
         val pm = getSystemService(POWER_SERVICE) as PowerManager
-        val batteryOk = pm.isIgnoringBatteryOptimizations(packageName)
+        // [修复 2026-10-22] 电池优化必须查「后台组件」，不能只查主应用本体：
+        // 真正需要长时间存活、被系统冻结后要自己跑打卡的是引擎；
+        // 此前只看 packageName → 引擎被限制时这里仍显示"已豁免"
+        val selfBatteryOk = pm.isIgnoringBatteryOptimizations(packageName)
+        val engineBatteryOk = !engineInstalled ||
+            runCatching { pm.isIgnoringBatteryOptimizations(EngineBridge.ENGINE_PACKAGE) }
+                .getOrDefault(false)
+        val batteryOk = selfBatteryOk && engineBatteryOk
 
         LogStore.append(
             this,
@@ -1117,7 +1128,9 @@ class MainActivity : AppCompatActivity() {
                 "（本应用${if (notifMainOk) "✓" else "✗"} · 组件" +
                 "${if (!engineInstalled) "未安装" else if (engineNotifGranted) "✓" else "✗"}）；" +
                 "精确闹钟=${if (alarmOk) "通过" else "未配置"}；" +
-                "电池优化=${if (batteryOk) "通过" else "未配置"}"
+                "电池优化=${if (batteryOk) "通过" else "未配置"}" +
+                "（本应用${if (selfBatteryOk) "✓" else "✗"} · 组件" +
+                "${if (!engineInstalled) "未安装" else if (engineBatteryOk) "✓" else "✗"}）"
         )
 
         val items = arrayOf(
@@ -1155,10 +1168,38 @@ class MainActivity : AppCompatActivity() {
                         Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, Uri.parse("package:$packageName"))
                     )
                     2 -> if (batteryOk) toastPermDone() else {
-                        @Suppress("BatteryLife")
-                        startActivity(
-                            Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:$packageName"))
-                        )
+                        // [修复 2026-10-22] 优先给「后台组件」申请豁免（引擎才是真正需要活着的那个）：
+                        // 先尝试针对引擎包发起请求；系统/ROM 不支持时退到电池优化列表页手动选
+                        if (engineInstalled && !engineBatteryOk) {
+                            val ok = runCatching {
+                                @Suppress("BatteryLife")
+                                startActivity(
+                                    Intent(
+                                        Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
+                                        Uri.parse("package:${EngineBridge.ENGINE_PACKAGE}")
+                                    )
+                                )
+                            }.isSuccess
+                            if (!ok) {
+                                Toast.makeText(
+                                    this,
+                                    "请在电池优化列表中把「后台组件」设为不优化",
+                                    Toast.LENGTH_LONG
+                                ).show()
+                                runCatching {
+                                    @Suppress("BatteryLife")
+                                    startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
+                                }
+                            }
+                        } else {
+                            @Suppress("BatteryLife")
+                            startActivity(
+                                Intent(
+                                    Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
+                                    Uri.parse("package:$packageName")
+                                )
+                            )
+                        }
                     }
                     3 -> showAutostartTips()
                 }
@@ -1338,15 +1379,32 @@ class MainActivity : AppCompatActivity() {
                 LogStore.append(this, "[引擎] 后台组件已更新到 v${info.installedVersionCode}")
             } else {
                 val cur = if (info.installed) "v${info.installedVersionCode}" else "未安装"
-                Toast.makeText(
-                    this,
-                    getString(R.string.engine_update_not_applied, cur, info.bundledVersionCode),
-                    Toast.LENGTH_LONG
-                ).show()
                 LogStore.append(
                     this,
                     "[引擎] 警告：更新未生效（当前 $cur，目标 v${info.bundledVersionCode}）"
                 )
+                // [修复 2026-10-22] 原来只弹一条 Toast「更新未完成」，在红米这类会静默拦截
+                // 安装界面的 ROM 上，用户被卡死且没有出路 → 改为给出可直接操作的对话框
+                MaterialAlertDialogBuilder(this)
+                    .setTitle("后台组件安装未完成")
+                    .setMessage(
+                        "当前：$cur，目标：v${info.bundledVersionCode}\n\n" +
+                            "常见原因：系统没有弹出安装界面，或「安装未知应用」被关闭/被安全中心拦截。\n" +
+                            "可先点「去开启安装权限」确认授权，再回来重新安装。"
+                    )
+                    .setPositiveButton("重新安装") { _, _ -> installEngineFlow() }
+                    .setNegativeButton("去开启安装权限") { _, _ ->
+                        runCatching {
+                            startActivity(
+                                Intent(
+                                    Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                                    Uri.parse("package:$packageName")
+                                )
+                            )
+                        }
+                    }
+                    .setNeutralButton(R.string.about_ok, null)
+                    .show()
             }
         }
         // [修复 2026-10-18] "卸载后重装"：旧组件已卸载 → 自动重装内嵌引擎

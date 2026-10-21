@@ -13,9 +13,10 @@ android {
         applicationId = "com.gnuestc.checkin"
         minSdk = 26
         targetSdk = 35
-        // [发布 2026-10-21] 0.4.4（vc9）：引擎 v26；通知图标修正 + review 修复；debug 与 release 共用版本号
-        versionCode = 9
-        versionName = "0.4.4"
+        // [发布 2026-10-22] 0.4.5（vc10）：安装流程改前台拉起系统安装器（修红米不弹安装界面）；
+        // 首次引导后补弹引擎安装；权限页电池豁免改查后台组件
+        versionCode = 10
+        versionName = "0.4.5"
     }
 
     buildTypes {
