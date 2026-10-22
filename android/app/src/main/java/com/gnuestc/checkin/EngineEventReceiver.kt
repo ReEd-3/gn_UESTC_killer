@@ -51,6 +51,15 @@ class EngineEventReceiver : BroadcastReceiver() {
                 val tail = if (expired) "→ 已暂停今日/明日巡检，请重新登录" else "→ 将继续自动重试"
                 "[引擎] 打卡未成功：$detail（$fmt）$tail"
             }
+            // [保活 2026-10-22] 心跳链发现会话已失效：界面同步置为「登录已失效」
+            "session_invalid" -> {
+                // 与 checkin_failed 同样的时序保护：旧会话的迟到事件不得覆盖新登录的有效态
+                if (ts >= Prefs.getCookieAt(context)) Prefs.setSessionValid(context, false)
+                "[引擎] 会话已失效（$detail）$suffix（$fmt）→ 已停止保活，请重新登录"
+            }
+            // [保活 2026-10-22] 心跳被服务端拒绝但非登录原因：只记日志，不误判为过期
+            "heartbeat_rejected" ->
+                "[引擎] 会话保活请求被拒绝（非登录问题）：$detail（$fmt）"
             else -> return
         }
         LogStore.append(context, text)

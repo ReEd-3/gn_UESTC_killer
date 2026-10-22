@@ -70,6 +70,12 @@
             android:name=".EnginePatrolReceiver"
             android:exported="false" />
 
+        <!-- [保活 2026-10-22] 会话心跳接收器（仅引擎内部 PendingIntent 可达）；
+             全天候每 30 分钟发一次只读 /today，避免会话在窗口外静置失效 -->
+        <receiver
+            android:name=".EngineHeartbeatReceiver"
+            android:exported="false" />
+
         <!-- [双包 2026-10-18] 引擎自己的常驻前台服务：
              放在引擎里才有意义——主应用被划掉不影响它 -->
         <service

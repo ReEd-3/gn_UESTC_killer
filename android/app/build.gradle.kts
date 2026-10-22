@@ -13,10 +13,10 @@ android {
         applicationId = "com.gnuestc.checkin"
         minSdk = 26
         targetSdk = 35
-        // [发布 2026-10-22] 0.4.5（vc10）：安装流程改前台拉起系统安装器（修红米不弹安装界面）；
-        // 首次引导后补弹引擎安装；权限页电池豁免改查后台组件
-        versionCode = 10
-        versionName = "0.4.5"
+        // [发布 2026-10-22] 0.4.6（vc11）：引擎 v27 新增会话心跳链（每 30 分钟只读 /today 续命）；
+        // 主应用接收心跳链的会话失效/被拒事件
+        versionCode = 11
+        versionName = "0.4.6"
     }
 
     buildTypes {

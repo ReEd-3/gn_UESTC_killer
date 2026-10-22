@@ -19,6 +19,9 @@ object EngineEvents {
     // [v7 巡检链] 引擎独立打卡结果
     const val EVENT_CHECKIN_SUCCESS = "checkin_success"
     const val EVENT_CHECKIN_FAILED = "checkin_failed"
+    // [保活 2026-10-22] 心跳链发现会话已失效 / 被服务端非登录原因拒绝
+    const val EVENT_SESSION_INVALID = "session_invalid"
+    const val EVENT_HEARTBEAT_REJECTED = "heartbeat_rejected"
 
     fun send(context: Context, event: String, detail: String = "") {
         runCatching {

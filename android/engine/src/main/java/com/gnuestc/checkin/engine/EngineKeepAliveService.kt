@@ -120,6 +120,8 @@ class EngineKeepAliveService : Service() {
         }
         // [v7 巡检链 / v8 网格] 服务启动/被拉起时确保巡检链存在（重装/重启/更新后自动恢复）
         EnginePatrol.scheduleAll(this)
+        // [保活 2026-10-22] 服务本身就常驻，顺手确保会话心跳链存在（窗口外靠它续命）
+        EngineHeartbeat.schedule(this)
         return START_STICKY
     }
 

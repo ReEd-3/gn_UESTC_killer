@@ -98,12 +98,20 @@ class EngineReceiver : BroadcastReceiver() {
                     }
                     // [v7/v8] 安排巡检链（窗口内每 5 分钟一个巡检点，网格冗余）；scheduleAll 自带签名防抖
                     // [review 2026-10-21] 会话失效时撤掉巡检链（服务保留，通知上会提示重新登录）
-                    if (valid) EnginePatrol.scheduleAll(context) else EnginePatrol.cancelAll(context)
+                    if (valid) {
+                        EnginePatrol.scheduleAll(context)
+                        // [保活 2026-10-22] 会话有效：确保心跳链在跑（窗口外的时段靠它维持会话）
+                        EngineHeartbeat.schedule(context)
+                    } else {
+                        EnginePatrol.cancelAll(context)
+                        EngineHeartbeat.cancel(context)
+                    }
                     // [review 2026-10-21] next_text / 会话有效性变了 → 刷新常驻通知文案（服务未运行则空操作）
                     EngineKeepAliveService.refresh(context)
                 } else {
                     EngineKeepAliveService.stop(context)
                     EnginePatrol.cancelAll(context)
+                    EngineHeartbeat.cancel(context)
                 }
             }
             // [v7 巡检链] 主应用回到前台时的立即补巡检（90 秒节流在引擎侧）
