@@ -129,7 +129,7 @@
     <string name="perm_notify_bad">✗ 通知权限：未开启 — 点击开启（接收打卡结果提醒）</string>
     <string name="perm_alarm_ok">✓ 精确闹钟：已允许</string>
     <string name="perm_alarm_bad">✗ 精确闹钟：未允许 — 点击去授权（准时触发打卡）</string>
-    <string name="perm_battery_ok">✓ 电池优化：本应用与后台组件均已豁免</string>
+    <string name="perm_battery_ok">✓ 电池优化：后台组件已豁免</string>
     <string name="perm_battery_bad">✗ 电池优化：后台组件未豁免 — 点击去设置（防止后台被杀）</string>
     <string name="perm_autostart_entry">自启动 / 后台运行 — 无法自动检测，点击查看配置说明</string>
     <string name="perm_item_done">该项已就绪</string>

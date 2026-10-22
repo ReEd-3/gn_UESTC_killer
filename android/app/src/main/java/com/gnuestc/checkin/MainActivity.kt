@@ -1114,13 +1114,17 @@ class MainActivity : AppCompatActivity() {
         val alarmOk = AlarmScheduler.canScheduleExact(this)
         val pm = getSystemService(POWER_SERVICE) as PowerManager
         // [修复 2026-10-22] 电池优化必须查「后台组件」，不能只查主应用本体：
-        // 真正需要长时间存活、被系统冻结后要自己跑打卡的是引擎；
-        // 此前只看 packageName → 引擎被限制时这里仍显示"已豁免"
+        // 真正需要长时间存活、被系统冻结后要自己跑打卡的是引擎。
+        // [修复 2026-10-22 二次] 判定与跳转都以引擎为准：
+        // 实测红米上只有引擎在 AOSP 白名单（user,com.gnuestc.checkin.engine）、本体没有，
+        // 之前要求“两者都豁免”→ 引擎已豁免却仍显示“未配置”，且点击时误跳本体。
+        // 本体被限制只影响“打开应用时的补打”，不影响后台能力，不应因此判失败。
         val selfBatteryOk = pm.isIgnoringBatteryOptimizations(packageName)
         val engineBatteryOk = !engineInstalled ||
             runCatching { pm.isIgnoringBatteryOptimizations(EngineBridge.ENGINE_PACKAGE) }
                 .getOrDefault(false)
-        val batteryOk = selfBatteryOk && engineBatteryOk
+        // 引擎已安装 → 以引擎为准；未安装 → 退回看本体
+        val batteryOk = if (engineInstalled) engineBatteryOk else selfBatteryOk
 
         LogStore.append(
             this,
@@ -1168,9 +1172,8 @@ class MainActivity : AppCompatActivity() {
                         Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, Uri.parse("package:$packageName"))
                     )
                     2 -> if (batteryOk) toastPermDone() else {
-                        // [修复 2026-10-22] 优先给「后台组件」申请豁免（引擎才是真正需要活着的那个）：
-                        // 先尝试针对引擎包发起请求；系统/ROM 不支持时退到电池优化列表页手动选
-                        if (engineInstalled && !engineBatteryOk) {
+                        // [修复 2026-10-22 二次] 跳转目标与判定保持一致：以引擎为准
+                        if (engineInstalled) {
                             val ok = runCatching {
                                 @Suppress("BatteryLife")
                                 startActivity(
