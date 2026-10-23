@@ -49,6 +49,20 @@ object EngineHeartbeat {
 
     /** 安排下一次心跳（常量间隔，链式自续；重复调用只会覆盖同一条闹钟） */
     fun schedule(context: Context) {
+        // [停用 2026-10-23] 用户实测确认：服务端会话是【定时清理，与是否活跃无关】，
+        // 因此"心跳保活"从根本上无效——每 30 分钟发一次请求既续不了命，还白白耗电、
+        // 空耗请求配额。现改为：任何一次 schedule 调用都直接撤销心跳链。
+        // 实现保留备查；若日后确认服务端改为滑动过期，删除下面两行即可恢复。
+        cancel(context)
+        return
+
+        @Suppress("UNREACHABLE_CODE")
+        if (!EnginePrefs.isKeepAliveEnabled(context)) return
+    }
+
+    /** 原实现（保留备查）：真正安排下一次心跳。停用后由 [schedule] 只做撤销。 */
+    @Suppress("unused")
+    private fun scheduleInternal(context: Context) {
         if (!EnginePrefs.isKeepAliveEnabled(context)) return
         if (EnginePrefs.getCookie(context).isBlank()) return
         // 已判定失效就不必再心跳（等用户重新登录后由 sync 重新排链）
