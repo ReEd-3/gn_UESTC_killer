@@ -1,0 +1,216 @@
+19659:9:websocket;0:~8:response;18209:6:reason;2:OK,11:status_code;3:200#13:timestamp_end;18:1792772494.2842116^15:timestamp_start;18:1792772494.2840865^8:trailers;0:~7:content;17944:<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+
+    <title>mitmproxy</title>
+    <link href="static/bootstrap.min.css" rel="stylesheet">
+    <link href="static/mitmproxy.css" rel="stylesheet">
+    <link rel="icon" href="static/images/favicon.ico" type="image/x-icon"/>
+</head>
+
+<body>
+<nav class="navbar navbar-dark bg-dark mb-3">
+    <div class="container">
+        <div class="navbar-header">
+            <div class="navbar-brand">
+                <img src="static/images/mitmproxy-long.png" height="30" alt="mitmproxy logo" class="align-top"/>
+            </div>
+        </div>
+    </div>
+</nav>
+<div class="container">
+    
+<div class="row justify-content-md-center">
+    <div class="col-md-9">
+<!--suppress HtmlUnknownTag -->
+<h3 class="my-4">Install mitmproxy's Certificate Authority</h3>
+
+
+
+<ul class="list-unstyled">
+    <li class="media">
+    <svg aria-hidden="true" focusable="false" data-prefix="fab" data-icon="windows" class="svg-inline--fa fa-windows fa-w-14" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><path fill="currentColor" d="M0 93.7l183.6-25.3v177.4H0V93.7zm0 324.6l183.6 25.3V268.4H0v149.9zm203.8 28L448 480V268.4H203.8v177.9zm0-380.6v180.1H448V32L203.8 65.7z"></path></svg>
+    <div class="media-body">
+        <h5 class="mt-0">Windows</h5>
+        <a class="btn btn-sm btn-success" href="/cert/p12" target="_blank">🔏 Get mitmproxy-ca-cert.p12</a>
+        <a class="btn btn-sm btn-info show-instructions" href="#Windows" id="Windows">📖
+            Show Instructions</a>
+        <a class="btn btn-sm btn-info hide-instructions" href="#/">📖 Hide Instructions</a>
+        <div class="instructions">
+    <h5>Manual Installation</h5>
+    <ol>
+        <li>Double-click the P12 file to start the import wizard.</li>
+        <li>Select a certificate store location. This determines who will trust the certificate &ndash; only the current
+            Windows user or everyone on the machine. Click <samp>Next</samp>.
+        </li>
+        <li>Click <samp>Next</samp> again.</li>
+        <li>Leave <samp>Password</samp> blank and click <samp>Next</samp>.</li>
+        <li><span class="text-danger">Select <samp>Place all certificates in the following store</samp></span>,
+            then click <samp>Browse</samp>, and select <samp>Trusted Root Certification Authorities</samp>.<br>
+            Click <samp>OK</samp> and <samp>Next</samp>.
+        </li>
+        <li>Click <samp>Finish</samp>.</li>
+        <li>Click <samp>Yes</samp> to confirm the warning dialog.</li>
+    </ol>
+    <h5>Automated Installation</h5>
+    <ol>
+        <li>Run <code>certutil.exe -addstore root mitmproxy-ca-cert.cer</code>
+            (<a href="https://technet.microsoft.com/en-us/library/cc732443.aspx">details</a>).
+        </li>
+    </ol>
+    </div>
+    </div>
+</li>
+    <li class="media">
+    <svg aria-hidden="true" focusable="false" data-prefix="fab" data-icon="linux" class="svg-inline--fa fa-linux fa-w-14" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><path fill="currentColor" d="M220.8 123.3c1 .5 1.8 1.7 3 1.7 1.1 0 2.8-.4 2.9-1.5.2-1.4-1.9-2.3-3.2-2.9-1.7-.7-3.9-1-5.5-.1-.4.2-.8.7-.6 1.1.3 1.3 2.3 1.1 3.4 1.7zm-21.9 1.7c1.2 0 2-1.2 3-1.7 1.1-.6 3.1-.4 3.5-1.6.2-.4-.2-.9-.6-1.1-1.6-.9-3.8-.6-5.5.1-1.3.6-3.4 1.5-3.2 2.9.1 1 1.8 1.5 2.8 1.4zM420 403.8c-3.6-4-5.3-11.6-7.2-19.7-1.8-8.1-3.9-16.8-10.5-22.4-1.3-1.1-2.6-2.1-4-2.9-1.3-.8-2.7-1.5-4.1-2 9.2-27.3 5.6-54.5-3.7-79.1-11.4-30.1-31.3-56.4-46.5-74.4-17.1-21.5-33.7-41.9-33.4-72C311.1 85.4 315.7.1 234.8 0 132.4-.2 158 103.4 156.9 135.2c-1.7 23.4-6.4 41.8-22.5 64.7-18.9 22.5-45.5 58.8-58.1 96.7-6 17.9-8.8 36.1-6.2 53.3-6.5 5.8-11.4 14.7-16.6 20.2-4.2 4.3-10.3 5.9-17 8.3s-14 6-18.5 14.5c-2.1 3.9-2.8 8.1-2.8 12.4 0 3.9.6 7.9 1.2 11.8 1.2 8.1 2.5 15.7.8 20.8-5.2 14.4-5.9 24.4-2.2 31.7 3.8 7.3 11.4 10.5 20.1 12.3 17.3 3.6 40.8 2.7 59.3 12.5 19.8 10.4 39.9 14.1 55.9 10.4 11.6-2.6 21.1-9.6 25.9-20.2 12.5-.1 26.3-5.4 48.3-6.6 14.9-1.2 33.6 5.3 55.1 4.1.6 2.3 1.4 4.6 2.5 6.7v.1c8.3 16.7 23.8 24.3 40.3 23 16.6-1.3 34.1-11 48.3-27.9 13.6-16.4 36-23.2 50.9-32.2 7.4-4.5 13.4-10.1 13.9-18.3.4-8.2-4.4-17.3-15.5-29.7zM223.7 87.3c9.8-22.2 34.2-21.8 44-.4 6.5 14.2 3.6 30.9-4.3 40.4-1.6-.8-5.9-2.6-12.6-4.9 1.1-1.2 3.1-2.7 3.9-4.6 4.8-11.8-.2-27-9.1-27.3-7.3-.5-13.9 10.8-11.8 23-4.1-2-9.4-3.5-13-4.4-1-6.9-.3-14.6 2.9-21.8zM183 75.8c10.1 0 20.8 14.2 19.1 33.5-3.5 1-7.1 2.5-10.2 4.6 1.2-8.9-3.3-20.1-9.6-19.6-8.4.7-9.8 21.2-1.8 28.1 1 .8 1.9-.2-5.9 5.5-15.6-14.6-10.5-52.1 8.4-52.1zm-13.6 60.7c6.2-4.6 13.6-10 14.1-10.5 4.7-4.4 13.5-14.2 27.9-14.2 7.1 0 15.6 2.3 25.9 8.9 6.3 4.1 11.3 4.4 22.6 9.3 8.4 3.5 13.7 9.7 10.5 18.2-2.6 7.1-11 14.4-22.7 18.1-11.1 3.6-19.8 16-38.2 14.9-3.9-.2-7-1-9.6-2.1-8-3.5-12.2-10.4-20-15-8.6-4.8-13.2-10.4-14.7-15.3-1.4-4.9 0-9 4.2-12.3zm3.3 334c-2.7 35.1-43.9 34.4-75.3 18-29.9-15.8-68.6-6.5-76.5-21.9-2.4-4.7-2.4-12.7 2.6-26.4v-.2c2.4-7.6.6-16-.6-23.9-1.2-7.8-1.8-15 .9-20 3.5-6.7 8.5-9.1 14.8-11.3 10.3-3.7 11.8-3.4 19.6-9.9 5.5-5.7 9.5-12.9 14.3-18 5.1-5.5 10-8.1 17.7-6.9 8.1 1.2 15.1 6.8 21.9 16l19.6 35.6c9.5 19.9 43.1 48.4 41 68.9zm-1.4-25.9c-4.1-6.6-9.6-13.6-14.4-19.6 7.1 0 14.2-2.2 16.7-8.9 2.3-6.2 0-14.9-7.4-24.9-13.5-18.2-38.3-32.5-38.3-32.5-13.5-8.4-21.1-18.7-24.6-29.9s-3-23.3-.3-35.2c5.2-22.9 18.6-45.2 27.2-59.2 2.3-1.7.8 3.2-8.7 20.8-8.5 16.1-24.4 53.3-2.6 82.4.6-20.7 5.5-41.8 13.8-61.5 12-27.4 37.3-74.9 39.3-112.7 1.1.8 4.6 3.2 6.2 4.1 4.6 2.7 8.1 6.7 12.6 10.3 12.4 10 28.5 9.2 42.4 1.2 6.2-3.5 11.2-7.5 15.9-9 9.9-3.1 17.8-8.6 22.3-15 7.7 30.4 25.7 74.3 37.2 95.7 6.1 11.4 18.3 35.5 23.6 64.6 3.3-.1 7 .4 10.9 1.4 13.8-35.7-11.7-74.2-23.3-84.9-4.7-4.6-4.9-6.6-2.6-6.5 12.6 11.2 29.2 33.7 35.2 59 2.8 11.6 3.3 23.7.4 35.7 16.4 6.8 35.9 17.9 30.7 34.8-2.2-.1-3.2 0-4.2 0 3.2-10.1-3.9-17.6-22.8-26.1-19.6-8.6-36-8.6-38.3 12.5-12.1 4.2-18.3 14.7-21.4 27.3-2.8 11.2-3.6 24.7-4.4 39.9-.5 7.7-3.6 18-6.8 29-32.1 22.9-76.7 32.9-114.3 7.2zm257.4-11.5c-.9 16.8-41.2 19.9-63.2 46.5-13.2 15.7-29.4 24.4-43.6 25.5s-26.5-4.8-33.7-19.3c-4.7-11.1-2.4-23.1 1.1-36.3 3.7-14.2 9.2-28.8 9.9-40.6.8-15.2 1.7-28.5 4.2-38.7 2.6-10.3 6.6-17.2 13.7-21.1.3-.2.7-.3 1-.5.8 13.2 7.3 26.6 18.8 29.5 12.6 3.3 30.7-7.5 38.4-16.3 9-.3 15.7-.9 22.6 5.1 9.9 8.5 7.1 30.3 17.1 41.6 10.6 11.6 14 19.5 13.7 24.6zM173.3 148.7c2 1.9 4.7 4.5 8 7.1 6.6 5.2 15.8 10.6 27.3 10.6 11.6 0 22.5-5.9 31.8-10.8 4.9-2.6 10.9-7 14.8-10.4s5.9-6.3 3.1-6.6-2.6 2.6-6 5.1c-4.4 3.2-9.7 7.4-13.9 9.8-7.4 4.2-19.5 10.2-29.9 10.2s-18.7-4.8-24.9-9.7c-3.1-2.5-5.7-5-7.7-6.9-1.5-1.4-1.9-4.6-4.3-4.9-1.4-.1-1.8 3.7 1.7 6.5z"></path></svg>
+    <div class="media-body">
+        <h5 class="mt-0">Linux</h5>
+        <a class="btn btn-sm btn-success" href="/cert/pem" target="_blank">🔏 Get mitmproxy-ca-cert.pem</a>
+        <a class="btn btn-sm btn-info show-instructions" href="#Linux" id="Linux">📖
+            Show Instructions</a>
+        <a class="btn btn-sm btn-info hide-instructions" href="#/">📖 Hide Instructions</a>
+        <div class="instructions">
+    <h5>Ubuntu/Debian</h5>
+    <ol>
+        <li><code>mv mitmproxy-ca-cert.pem /usr/local/share/ca-certificates/mitmproxy.crt</code></li>
+        <li><code>sudo update-ca-certificates</code></li>
+    </ol>
+    <h5>Fedora</h5>
+    <ol>
+        <li><code>mv mitmproxy-ca-cert.pem /etc/pki/ca-trust/source/anchors/</code></li>
+        <li><code>sudo update-ca-trust</code></li>
+    </ol>
+    <h5>Arch Linux</h5>
+    <ol>
+        <code>sudo trust anchor --store mitmproxy-ca-cert.pem</code>
+    </ol>
+    </div>
+    </div>
+</li>
+    <li class="media">
+    <svg aria-hidden="true" focusable="false" data-prefix="fab" data-icon="apple" class="svg-inline--fa fa-apple fa-w-12" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512"><path fill="currentColor" d="M318.7 268.7c-.2-36.7 16.4-64.4 50-84.8-18.8-26.9-47.2-41.7-84.7-44.6-35.5-2.8-74.3 20.7-88.5 20.7-15 0-49.4-19.7-76.4-19.7C63.3 141.2 4 184.8 4 273.5q0 39.3 14.4 81.2c12.8 36.7 59 126.7 107.2 125.2 25.2-.6 43-17.9 75.8-17.9 31.8 0 48.3 17.9 76.4 17.9 48.6-.7 90.4-82.5 102.6-119.3-65.2-30.7-61.7-90-61.7-91.9zm-56.6-164.2c27.3-32.4 24.8-61.9 24-72.5-24.1 1.4-52 16.4-67.9 34.9-17.5 19.8-27.8 44.3-25.6 71.9 26.1 2 49.9-11.4 69.5-34.3z"></path></svg>
+    <div class="media-body">
+        <h5 class="mt-0">macOS</h5>
+        <a class="btn btn-sm btn-success" href="/cert/pem" target="_blank">🔏 Get mitmproxy-ca-cert.pem</a>
+        <a class="btn btn-sm btn-info show-instructions" href="#macOS" id="macOS">📖
+            Show Instructions</a>
+        <a class="btn btn-sm btn-info hide-instructions" href="#/">📖 Hide Instructions</a>
+        <div class="instructions">
+    <h5>Manual Installation</h5>
+    <ol>
+        <li>Double-click the PEM file to open the <samp>Keychain Access</samp> application.</li>
+        <li>Locate the new certificate "mitmproxy" in the list and double-click it.</li>
+        <li>Change <samp>Secure Socket Layer (SSL)</samp> to <samp>Always Trust</samp>.</li>
+        <li>Close the dialog window and enter your password if prompted.</li>
+    </ol>
+    <h5>Automated Installation</h5>
+    <ol>
+        <li><code>sudo security add-trusted-cert -d -p ssl -p basic -k /Library/Keychains/System.keychain mitmproxy-ca-cert.pem</code></li>
+    </ol>
+    </div>
+    </div>
+</li>
+    <li class="media">
+    <svg aria-hidden="true" focusable="false" data-prefix="fab" data-icon="apple" class="svg-inline--fa fa-apple fa-w-12" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512"><path fill="currentColor" d="M318.7 268.7c-.2-36.7 16.4-64.4 50-84.8-18.8-26.9-47.2-41.7-84.7-44.6-35.5-2.8-74.3 20.7-88.5 20.7-15 0-49.4-19.7-76.4-19.7C63.3 141.2 4 184.8 4 273.5q0 39.3 14.4 81.2c12.8 36.7 59 126.7 107.2 125.2 25.2-.6 43-17.9 75.8-17.9 31.8 0 48.3 17.9 76.4 17.9 48.6-.7 90.4-82.5 102.6-119.3-65.2-30.7-61.7-90-61.7-91.9zm-56.6-164.2c27.3-32.4 24.8-61.9 24-72.5-24.1 1.4-52 16.4-67.9 34.9-17.5 19.8-27.8 44.3-25.6 71.9 26.1 2 49.9-11.4 69.5-34.3z"></path></svg>
+    <div class="media-body">
+        <h5 class="mt-0">iOS <small>– please read the instructions!</small></h5>
+        <a class="btn btn-sm btn-success" href="/cert/pem" target="_blank">🔏 Get mitmproxy-ca-cert.pem</a>
+        <a class="btn btn-sm btn-info show-instructions" href="#iOS" id="iOS">📖
+            Show Instructions</a>
+        <a class="btn btn-sm btn-info hide-instructions" href="#/">📖 Hide Instructions</a>
+        <div class="instructions">
+    <h5>iOS 13+</h5>
+    <ol>
+        <li>Use Safari to download the certificate. Other browsers may not open the proper installation prompt.</li>
+        <li>Install the new Profile (<samp>Settings -> General -> VPN & Device Management</samp>).</li>
+        <li><span class="text-danger"><strong>Important:</strong> Go to <samp>Settings -> General -> About -> Certificate Trust Settings</samp>.
+            Toggle <samp>mitmproxy</samp> to <samp>ON</samp>.</span></li>
+    </ol>
+    </div>
+    </div>
+</li>
+    <li class="media">
+    <svg aria-hidden="true" focusable="false" data-prefix="fab" data-icon="android" class="svg-inline--fa fa-android fa-w-18" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><path fill="currentColor" d="M420.55,301.93a24,24,0,1,1,24-24,24,24,0,0,1-24,24m-265.1,0a24,24,0,1,1,24-24,24,24,0,0,1-24,24m273.7-144.48,47.94-83a10,10,0,1,0-17.27-10h0l-48.54,84.07a301.25,301.25,0,0,0-246.56,0L116.18,64.45a10,10,0,1,0-17.27,10h0l47.94,83C64.53,202.22,8.24,285.55,0,384H576c-8.24-98.45-64.54-181.78-146.85-226.55"></path></svg>
+    <div class="media-body">
+        <h5 class="mt-0">Android</h5>
+        <a class="btn btn-sm btn-success" href="/cert/cer" target="_blank">🔏 Get mitmproxy-ca-cert.cer</a>
+        <a class="btn btn-sm btn-info show-instructions" href="#Android" id="Android">📖
+            Show Instructions</a>
+        <a class="btn btn-sm btn-info hide-instructions" href="#/">📖 Hide Instructions</a>
+        <div class="instructions">
+    <h5>Android 10+</h5>
+    <ol class="mb-2">
+        <li>Open the downloaded CER file.</li>
+        <li>Enter <samp>mitmproxy</samp> (or anything else) as the certificate name.</li>
+        <li>For credential use, select <samp>VPN and apps</samp>.</li>
+        <li>Click OK.</li>
+    </ol>
+
+    <p>Some Android distributions require you to install the certificate via <samp>Settings -> Security -> Advanced ->
+        Encryption and credentials -> Install a certificate -> CA certificate</samp> (or similar) instead.</p>
+
+    <div class="alert alert-warning" role="alert">
+        <p><strong>Warning: </strong>Apps that target Android API Level 24 (introduced in 2016) and above only accept
+            certificates from the system trust store
+            (<a href="https://github.com/mitmproxy/mitmproxy/issues/2054">#2054</a>).
+            User-added CAs are not accepted unless the application manually opts in. Except for browsers, you need to
+            patch most apps manually
+            (<a href="https://developer.android.com/training/articles/security-config">Android network security config</a>).
+        </p>
+        <p>
+          Alternatively, if you have rooted the device and have Magisk installed, you can install <a href="/cert/magisk">this Magisk module</a> via the Magisk Manager app.
+        </p>
+    </div>
+    </div>
+    </div>
+</li>
+    <li class="media">
+    <svg aria-hidden="true" focusable="false" data-prefix="fab" data-icon="firefox-browser" class="svg-inline--fa fa-firefox-browser fa-w-16" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path fill="currentColor" d="M189.37,152.86Zm-58.74-29.37C130.79,123.5,130.71,123.5,130.63,123.49Zm351.42,45.35c-10.61-25.5-32.08-53-48.94-61.73,13.72,26.89,21.67,53.88,24.7,74,0,0,0,.14.05.41-27.58-68.75-74.35-96.47-112.55-156.83-1.93-3.05-3.86-6.11-5.74-9.33-1-1.65-1.86-3.34-2.69-5.05A44.88,44.88,0,0,1,333.24.69a.63.63,0,0,0-.55-.66.9.9,0,0,0-.46,0l-.12.07-.18.1.1-.14c-54.23,31.77-76.72,87.38-82.5,122.78a130,130,0,0,0-48.33,12.33,6.25,6.25,0,0,0-3.09,7.75,6.13,6.13,0,0,0,7.79,3.79l.52-.21a117.84,117.84,0,0,1,42.11-11l1.42-.1c2-.12,4-.2,6-.22A122.61,122.61,0,0,1,291,140c.67.2,1.32.42,2,.63,1.89.57,3.76,1.2,5.62,1.87,1.36.5,2.71,1,4.05,1.58,1.09.44,2.18.88,3.25,1.35q2.52,1.13,5,2.35c.75.37,1.5.74,2.25,1.13q2.4,1.26,4.74,2.63,1.51.87,3,1.8a124.89,124.89,0,0,1,42.66,44.13c-13-9.15-36.35-18.19-58.82-14.28,87.74,43.86,64.18,194.9-57.39,189.2a108.43,108.43,0,0,1-31.74-6.12c-2.42-.91-4.8-1.89-7.16-2.93-1.38-.63-2.76-1.27-4.12-2C174.5,346,149.9,316.92,146.83,281.59c0,0,11.25-41.95,80.62-41.95,7.5,0,28.93-20.92,29.33-27-.09-2-42.54-18.87-59.09-35.18-8.85-8.71-13.05-12.91-16.77-16.06a69.58,69.58,0,0,0-6.31-4.77A113.05,113.05,0,0,1,173.92,97c-25.06,11.41-44.55,29.45-58.71,45.37h-.12c-9.67-12.25-9-52.65-8.43-61.08-.12-.53-7.22,3.68-8.15,4.31a178.54,178.54,0,0,0-23.84,20.43A214,214,0,0,0,51.9,133.36l0,0a.08.08,0,0,1,0,0,205.84,205.84,0,0,0-32.73,73.9c-.06.27-2.33,10.21-4,22.48q-.42,2.87-.78,5.74c-.57,3.69-1,7.71-1.44,14,0,.24,0,.48-.05.72-.18,2.71-.34,5.41-.49,8.12,0,.41,0,.82,0,1.24,0,134.7,109.21,243.89,243.92,243.89,120.64,0,220.82-87.58,240.43-202.62.41-3.12.74-6.26,1.11-9.41,4.85-41.83-.54-85.79-15.82-122.55Z"></path></svg>
+    <div class="media-body">
+        <h5 class="mt-0">Firefox <small>(does not use the OS root certificates)</small></h5>
+        <a class="btn btn-sm btn-success" href="/cert/pem" target="_blank">🔏 Get mitmproxy-ca-cert.pem</a>
+        <a class="btn btn-sm btn-info show-instructions" href="#Firefox" id="Firefox">📖
+            Show Instructions</a>
+        <a class="btn btn-sm btn-info hide-instructions" href="#/">📖 Hide Instructions</a>
+        <div class="instructions">
+    <h5>Firefox</h5>
+    <ol>
+        <li>Open <samp>Options -> Privacy &amp; Security</samp> and click <samp>View Certificates...</samp>
+            at the bottom of the page.</li>
+        <li>Click <samp>Import...</samp> and select the downloaded certificate.</li>
+        <li>Enable <samp>Trust this CA to identify websites</samp> and click <samp>OK</samp>.</li>
+    </ol>
+    </div>
+    </div>
+</li>
+    <li class="media">
+    <svg aria-hidden="true" focusable="false" data-prefix="fas" data-icon="certificate" class="svg-inline--fa fa-certificate fa-w-16" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path fill="currentColor" d="M458.622 255.92l45.985-45.005c13.708-12.977 7.316-36.039-10.664-40.339l-62.65-15.99 17.661-62.015c4.991-17.838-11.829-34.663-29.661-29.671l-61.994 17.667-15.984-62.671C337.085.197 313.765-6.276 300.99 7.228L256 53.57 211.011 7.229c-12.63-13.351-36.047-7.234-40.325 10.668l-15.984 62.671-61.995-17.667C74.87 57.907 58.056 74.738 63.046 92.572l17.661 62.015-62.65 15.99C.069 174.878-6.31 197.944 7.392 210.915l45.985 45.005-45.985 45.004c-13.708 12.977-7.316 36.039 10.664 40.339l62.65 15.99-17.661 62.015c-4.991 17.838 11.829 34.663 29.661 29.671l61.994-17.667 15.984 62.671c4.439 18.575 27.696 24.018 40.325 10.668L256 458.61l44.989 46.001c12.5 13.488 35.987 7.486 40.325-10.668l15.984-62.671 61.994 17.667c17.836 4.994 34.651-11.837 29.661-29.671l-17.661-62.015 62.65-15.99c17.987-4.302 24.366-27.367 10.664-40.339l-45.984-45.004z"></path></svg>
+    <div class="media-body">
+        <h5 class="mt-0">Other Platforms</h5>
+        <a class="btn btn-sm btn-success" href="/cert/pem" target="_blank">🔏 Get mitmproxy-ca-cert.pem</a>
+        <a class="btn btn-sm btn-success" href="/cert/p12" target="_blank">🔏 Get mitmproxy-ca-cert.p12</a>
+    </div>
+    </li>
+</ul>
+    </div>
+
+</div>
+<hr/>
+
+<p>
+    Other mitmproxy users cannot intercept your connection.
+    <span class="text-muted">
+    This page is served by your local mitmproxy instance. The certificate you are about to install has been uniquely
+    generated on mitmproxy's first run and is not shared
+    between mitmproxy installations.
+    </span>
+</p>
+
+
+
+</div>
+
+</body>
+</html>,7:headers;78:44:12:content-type,24:text/html; charset=utf-8,]26:14:content-length,5:17944,]]12:http_version;8:HTTP/1.1,}7:request;396:4:path;1:/,9:authority;0:,6:scheme;4:http,6:method;3:GET,4:port;2:80#4:host;7:mitm.it;13:timestamp_end;18:1792772494.2713695^15:timestamp_start;17:1792772494.270919^8:trailers;0:~7:content;0:,7:headers;162:99:10:User-Agent,81:Mozilla/5.0 (Windows NT; Windows NT 10.0; zh-CN) WindowsPowerShell/5.1.26100.9711,]17:4:Host,7:mitm.it,]34:16:Proxy-Connection,10:Keep-Alive,]]12:http_version;8:HTTP/1.1,}6:backup;0:~17:timestamp_created;17:1792772494.271074^7:comment;0:;8:metadata;0:}6:marked;0:;9:is_replay;0:~11:intercepted;5:false!11:server_conn;350:3:via;0:~19:timestamp_tcp_setup;0:~7:address;0:~19:timestamp_tls_setup;0:~13:timestamp_end;0:~15:timestamp_start;0:~3:sni;0:~11:tls_version;0:~11:cipher_list;0:]6:cipher;0:~11:alpn_offers;0:]4:alpn;0:~16:certificate_list;0:]3:tls;5:false!5:error;0:~18:transport_protocol;3:tcp;2:id;36:a5b6b6d9-df55-468a-b329-c33e81e2f92e;8:sockname;0:~8:peername;0:~}11:client_conn;400:10:proxy_mode;7:regular;8:mitmcert;0:~19:timestamp_tls_setup;0:~13:timestamp_end;0:~15:timestamp_start;18:1792772494.2691896^3:sni;0:~11:tls_version;0:~11:cipher_list;0:]6:cipher;0:~11:alpn_offers;0:]4:alpn;0:~16:certificate_list;0:]3:tls;5:false!5:error;0:~18:transport_protocol;3:tcp;2:id;36:77eb7cd0-4903-4458-b21f-e46a8c4c6c0e;8:sockname;19:9:127.0.0.1;4:8080#]8:peername;20:9:127.0.0.1;5:60222#]}5:error;0:~2:id;36:1cba7ea5-e900-4625-bc6b-0afb7afcad81;4:type;4:http;7:version;2:21#}1989:9:websocket;0:~8:response;390:6:reason;2:OK,11:status_code;3:200#13:timestamp_end;18:1792772822.0249686^15:timestamp_start;18:1792772822.0245907^8:trailers;0:~7:content;22:Microsoft Connect Test,7:headers;183:23:14:Content-Length,2:22,]40:4:Date,29:Fri, 23 Oct 2026 16:27:02 GMT,]22:10:Connection,5:close,]30:12:Content-Type,10:text/plain,]48:13:Cache-Control,27:max-age=30, must-revalidate,]]12:http_version;8:HTTP/1.1,}7:request;370:4:path;16:/connecttest.txt,9:authority;0:,6:scheme;4:http,6:method;3:GET,4:port;2:80#4:host;24:ipv6.msftconnecttest.com;13:timestamp_end;18:1792772821.8753073^15:timestamp_start;18:1792772821.8750777^8:trailers;0:~7:content;0:,7:headers;101:22:10:Connection,5:Close,]32:10:User-Agent,14:Microsoft NCSI,]35:4:Host,24:ipv6.msftconnecttest.com,]]12:http_version;8:HTTP/1.1,}6:backup;0:~17:timestamp_created;18:1792772821.8751533^7:comment;0:;8:metadata;0:}6:marked;0:;9:is_replay;0:~11:intercepted;5:false!11:server_conn;527:3:via;0:~19:timestamp_tcp_setup;18:1792772821.9501731^7:address;33:24:ipv6.msftconnecttest.com;2:80#]19:timestamp_tls_setup;0:~13:timestamp_end;0:~15:timestamp_start;18:1792772821.8755648^3:sni;0:~11:tls_version;0:~11:cipher_list;0:]6:cipher;0:~11:alpn_offers;0:]4:alpn;0:~16:certificate_list;0:]3:tls;5:false!5:error;0:~18:transport_protocol;3:tcp;2:id;36:afbbf9fd-3519-4547-a632-c23becea1dc0;8:sockname;58:38:2409:8a62:f02:5b95:98a5:68bc:f1d9:3c21;5:55510#1:0#1:0#]8:peername;45:28:2600:1417:4400:10::1731:6834;2:80#1:0#1:0#]}11:client_conn;399:10:proxy_mode;7:regular;8:mitmcert;0:~19:timestamp_tls_setup;0:~13:timestamp_end;0:~15:timestamp_start;17:1792772821.874209^3:sni;0:~11:tls_version;0:~11:cipher_list;0:]6:cipher;0:~11:alpn_offers;0:]4:alpn;0:~16:certificate_list;0:]3:tls;5:false!5:error;0:~18:transport_protocol;3:tcp;2:id;36:233f4e15-55a7-4594-b42d-3aa1ce921e90;8:sockname;19:9:127.0.0.1;4:8080#]8:peername;20:9:127.0.0.1;5:55508#]}5:error;0:~2:id;36:fefef511-2661-4256-8c2c-e93035d9973a;4:type;4:http;7:version;2:21#}1927:9:websocket;0:~8:response;389:6:reason;2:OK,11:status_code;3:200#13:timestamp_end;18:1792772822.0468671^15:timestamp_start;17:1792772822.046498^8:trailers;0:~7:content;22:Microsoft Connect Test,7:headers;183:23:14:Content-Length,2:22,]40:4:Date,29:Fri, 23 Oct 2026 16:27:02 GMT,]22:10:Connection,5:close,]30:12:Content-Type,10:text/plain,]48:13:Cache-Control,27:max-age=30, must-revalidate,]]12:http_version;8:HTTP/1.1,}7:request;368:4:path;16:/connecttest.txt,9:authority;0:,6:scheme;4:http,6:method;3:GET,4:port;2:80#4:host;23:www.msftconnecttest.com;13:timestamp_end;18:1792772821.8001227^15:timestamp_start;18:1792772821.7991557^8:trailers;0:~7:content;0:,7:headers;100:22:10:Connection,5:Close,]32:10:User-Agent,14:Microsoft NCSI,]34:4:Host,23:www.msftconnecttest.com,]]12:http_version;8:HTTP/1.1,}6:backup;0:~17:timestamp_created;18:1792772821.7996023^7:comment;0:;8:metadata;0:}6:marked;0:;9:is_replay;0:~11:intercepted;5:false!11:server_conn;467:3:via;0:~19:timestamp_tcp_setup;18:1792772821.9275105^7:address;32:23:www.msftconnecttest.com;2:80#]19:timestamp_tls_setup;0:~13:timestamp_end;0:~15:timestamp_start;16:1792772821.80051^3:sni;0:~11:tls_version;0:~11:cipher_list;0:]6:cipher;0:~11:alpn_offers;0:]4:alpn;0:~16:certificate_list;0:]3:tls;5:false!5:error;0:~18:transport_protocol;3:tcp;2:id;36:aba9d96e-52a0-483d-9ed0-176683ef7c9a;8:sockname;24:12:172.16.35.44;5:55504#]8:peername;22:13:23.193.186.18;2:80#]}11:client_conn;400:10:proxy_mode;7:regular;8:mitmcert;0:~19:timestamp_tls_setup;0:~13:timestamp_end;0:~15:timestamp_start;18:1792772821.7979958^3:sni;0:~11:tls_version;0:~11:cipher_list;0:]6:cipher;0:~11:alpn_offers;0:]4:alpn;0:~16:certificate_list;0:]3:tls;5:false!5:error;0:~18:transport_protocol;3:tcp;2:id;36:05458326-2410-4954-88cf-ccaea643e166;8:sockname;19:9:127.0.0.1;4:8080#]8:peername;20:9:127.0.0.1;5:55501#]}5:error;0:~2:id;36:a660d093-aecf-478f-838e-170fea34e651;4:type;4:http;7:version;2:21#}1927:9:websocket;0:~8:response;390:6:reason;2:OK,11:status_code;3:200#13:timestamp_end;18:1792772822.0600052^15:timestamp_start;18:1792772822.0595777^8:trailers;0:~7:content;22:Microsoft Connect Test,7:headers;183:23:14:Content-Length,2:22,]40:4:Date,29:Fri, 23 Oct 2026 16:27:03 GMT,]22:10:Connection,5:close,]30:12:Content-Type,10:text/plain,]48:13:Cache-Control,27:max-age=30, must-revalidate,]]12:http_version;8:HTTP/1.1,}7:request;366:4:path;16:/connecttest.txt,9:authority;0:,6:scheme;4:http,6:method;3:GET,4:port;2:80#4:host;23:www.msftconnecttest.com;13:timestamp_end;17:1792772821.861094^15:timestamp_start;17:1792772821.860826^8:trailers;0:~7:content;0:,7:headers;100:22:10:Connection,5:Close,]32:10:User-Agent,14:Microsoft NCSI,]34:4:Host,23:www.msftconnecttest.com,]]12:http_version;8:HTTP/1.1,}6:backup;0:~17:timestamp_created;18:1792772821.8609126^7:comment;0:;8:metadata;0:}6:marked;0:;9:is_replay;0:~11:intercepted;5:false!11:server_conn;469:3:via;0:~19:timestamp_tcp_setup;18:1792772821.9603364^7:address;32:23:www.msftconnecttest.com;2:80#]19:timestamp_tls_setup;0:~13:timestamp_end;0:~15:timestamp_start;18:1792772821.8613632^3:sni;0:~11:tls_version;0:~11:cipher_list;0:]6:cipher;0:~11:alpn_offers;0:]4:alpn;0:~16:certificate_list;0:]3:tls;5:false!5:error;0:~18:transport_protocol;3:tcp;2:id;36:983d598f-7365-4193-b1d5-ff6bb155261d;8:sockname;24:12:172.16.35.44;5:55507#]8:peername;22:13:23.193.186.18;2:80#]}11:client_conn;399:10:proxy_mode;7:regular;8:mitmcert;0:~19:timestamp_tls_setup;0:~13:timestamp_end;0:~15:timestamp_start;17:1792772821.859993^3:sni;0:~11:tls_version;0:~11:cipher_list;0:]6:cipher;0:~11:alpn_offers;0:]4:alpn;0:~16:certificate_list;0:]3:tls;5:false!5:error;0:~18:transport_protocol;3:tcp;2:id;36:cf7eebc8-f006-483b-b12f-629cc29869b3;8:sockname;19:9:127.0.0.1;4:8080#]8:peername;20:9:127.0.0.1;5:55506#]}5:error;0:~2:id;36:557b1a5e-56cb-4f55-a599-ea38011058a0;4:type;4:http;7:version;2:21#}1989:9:websocket;0:~8:response;390:6:reason;2:OK,11:status_code;3:200#13:timestamp_end;18:1792772822.9260328^15:timestamp_start;18:1792772822.9257014^8:trailers;0:~7:content;22:Microsoft Connect Test,7:headers;183:23:14:Content-Length,2:22,]40:4:Date,29:Fri, 23 Oct 2026 16:27:03 GMT,]22:10:Connection,5:close,]30:12:Content-Type,10:text/plain,]48:13:Cache-Control,27:max-age=30, must-revalidate,]]12:http_version;8:HTTP/1.1,}7:request;370:4:path;16:/connecttest.txt,9:authority;0:,6:scheme;4:http,6:method;3:GET,4:port;2:80#4:host;24:ipv6.msftconnecttest.com;13:timestamp_end;18:1792772822.7846713^15:timestamp_start;18:1792772822.7844818^8:trailers;0:~7:content;0:,7:headers;101:22:10:Connection,5:Close,]32:10:User-Agent,14:Microsoft NCSI,]35:4:Host,24:ipv6.msftconnecttest.com,]]12:http_version;8:HTTP/1.1,}6:backup;0:~17:timestamp_created;18:1792772822.7845423^7:comment;0:;8:metadata;0:}6:marked;0:;9:is_replay;0:~11:intercepted;5:false!11:server_conn;526:3:via;0:~19:timestamp_tcp_setup;18:1792772822.8528965^7:address;33:24:ipv6.msftconnecttest.com;2:80#]19:timestamp_tls_setup;0:~13:timestamp_end;0:~15:timestamp_start;17:1792772822.784888^3:sni;0:~11:tls_version;0:~11:cipher_list;0:]6:cipher;0:~11:alpn_offers;0:]4:alpn;0:~16:certificate_list;0:]3:tls;5:false!5:error;0:~18:transport_protocol;3:tcp;2:id;36:576f1132-c4e4-4564-a1b7-2a40616e3b8e;8:sockname;58:38:2409:8a62:f02:5b95:98a5:68bc:f1d9:3c21;5:55516#1:0#1:0#]8:peername;45:28:2600:1417:4400:10::1731:6834;2:80#1:0#1:0#]}11:client_conn;400:10:proxy_mode;7:regular;8:mitmcert;0:~19:timestamp_tls_setup;0:~13:timestamp_end;0:~15:timestamp_start;18:1792772822.7838628^3:sni;0:~11:tls_version;0:~11:cipher_list;0:]6:cipher;0:~11:alpn_offers;0:]4:alpn;0:~16:certificate_list;0:]3:tls;5:false!5:error;0:~18:transport_protocol;3:tcp;2:id;36:8d2f238b-9fad-477b-85d2-350f31fbe0e0;8:sockname;19:9:127.0.0.1;4:8080#]8:peername;20:9:127.0.0.1;5:55515#]}5:error;0:~2:id;36:dd5186c2-007b-4a32-ba59-76c15be8b60b;4:type;4:http;7:version;2:21#}1989:9:websocket;0:~8:response;389:6:reason;2:OK,11:status_code;3:200#13:timestamp_end;18:1792772822.9596217^15:timestamp_start;17:1792772822.959286^8:trailers;0:~7:content;22:Microsoft Connect Test,7:headers;183:23:14:Content-Length,2:22,]40:4:Date,29:Fri, 23 Oct 2026 16:27:03 GMT,]22:10:Connection,5:close,]30:12:Content-Type,10:text/plain,]48:13:Cache-Control,27:max-age=30, must-revalidate,]]12:http_version;8:HTTP/1.1,}7:request;370:4:path;16:/connecttest.txt,9:authority;0:,6:scheme;4:http,6:method;3:GET,4:port;2:80#4:host;24:ipv6.msftconnecttest.com;13:timestamp_end;18:1792772821.8009143^15:timestamp_start;18:1792772821.8007314^8:trailers;0:~7:content;0:,7:headers;101:22:10:Connection,5:Close,]32:10:User-Agent,14:Microsoft NCSI,]35:4:Host,24:ipv6.msftconnecttest.com,]]12:http_version;8:HTTP/1.1,}6:backup;0:~17:timestamp_created;18:1792772821.8007843^7:comment;0:;8:metadata;0:}6:marked;0:;9:is_replay;0:~11:intercepted;5:false!11:server_conn;527:3:via;0:~19:timestamp_tcp_setup;18:1792772822.8895807^7:address;33:24:ipv6.msftconnecttest.com;2:80#]19:timestamp_tls_setup;0:~13:timestamp_end;0:~15:timestamp_start;18:1792772821.8011823^3:sni;0:~11:tls_version;0:~11:cipher_list;0:]6:cipher;0:~11:alpn_offers;0:]4:alpn;0:~16:certificate_list;0:]3:tls;5:false!5:error;0:~18:transport_protocol;3:tcp;2:id;36:b2b783e0-51f7-48e3-9710-08e3e465189e;8:sockname;58:38:2409:8a62:f02:5b95:98a5:68bc:f1d9:3c21;5:55503#1:0#1:0#]8:peername;45:28:2600:1417:4400:10::1731:6834;2:80#1:0#1:0#]}11:client_conn;400:10:proxy_mode;7:regular;8:mitmcert;0:~19:timestamp_tls_setup;0:~13:timestamp_end;0:~15:timestamp_start;18:1792772821.7997875^3:sni;0:~11:tls_version;0:~11:cipher_list;0:]6:cipher;0:~11:alpn_offers;0:]4:alpn;0:~16:certificate_list;0:]3:tls;5:false!5:error;0:~18:transport_protocol;3:tcp;2:id;36:4c78a6ce-eace-47a1-adde-78fb7bac5ef0;8:sockname;19:9:127.0.0.1;4:8080#]8:peername;20:9:127.0.0.1;5:55502#]}5:error;0:~2:id;36:0b5d6e77-91e7-4bbe-af65-df29afa42546;4:type;4:http;7:version;2:21#}1930:9:websocket;0:~8:response;390:6:reason;2:OK,11:status_code;3:200#13:timestamp_end;18:1792772822.9761186^15:timestamp_start;18:1792772822.9757156^8:trailers;0:~7:content;22:Microsoft Connect Test,7:headers;183:23:14:Content-Length,2:22,]40:4:Date,29:Fri, 23 Oct 2026 16:27:03 GMT,]22:10:Connection,5:close,]30:12:Content-Type,10:text/plain,]48:13:Cache-Control,27:max-age=30, must-revalidate,]]12:http_version;8:HTTP/1.1,}7:request;368:4:path;16:/connecttest.txt,9:authority;0:,6:scheme;4:http,6:method;3:GET,4:port;2:80#4:host;23:www.msftconnecttest.com;13:timestamp_end;18:1792772822.7816703^15:timestamp_start;18:1792772822.7814574^8:trailers;0:~7:content;0:,7:headers;100:22:10:Connection,5:Close,]32:10:User-Agent,14:Microsoft NCSI,]34:4:Host,23:www.msftconnecttest.com,]]12:http_version;8:HTTP/1.1,}6:backup;0:~17:timestamp_created;18:1792772822.7815294^7:comment;0:;8:metadata;0:}6:marked;0:;9:is_replay;0:~11:intercepted;5:false!11:server_conn;469:3:via;0:~19:timestamp_tcp_setup;18:1792772822.8793395^7:address;32:23:www.msftconnecttest.com;2:80#]19:timestamp_tls_setup;0:~13:timestamp_end;0:~15:timestamp_start;18:1792772822.7820969^3:sni;0:~11:tls_version;0:~11:cipher_list;0:]6:cipher;0:~11:alpn_offers;0:]4:alpn;0:~16:certificate_list;0:]3:tls;5:false!5:error;0:~18:transport_protocol;3:tcp;2:id;36:8066ed24-02b9-43be-a9aa-231a00b36ea4;8:sockname;24:12:172.16.35.44;5:55514#]8:peername;22:13:23.193.186.18;2:80#]}11:client_conn;400:10:proxy_mode;7:regular;8:mitmcert;0:~19:timestamp_tls_setup;0:~13:timestamp_end;0:~15:timestamp_start;18:1792772822.7806923^3:sni;0:~11:tls_version;0:~11:cipher_list;0:]6:cipher;0:~11:alpn_offers;0:]4:alpn;0:~16:certificate_list;0:]3:tls;5:false!5:error;0:~18:transport_protocol;3:tcp;2:id;36:ea4a73d7-97e3-4e20-91fa-1e7297cdbc1f;8:sockname;19:9:127.0.0.1;4:8080#]8:peername;20:9:127.0.0.1;5:55511#]}5:error;0:~2:id;36:7c3b2ee4-2b0b-41cb-97a5-a6b0022fe2b4;4:type;4:http;7:version;2:21#}
